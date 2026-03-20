@@ -1,0 +1,446 @@
+Build a production-grade developer utility web application called "DevToolkit" using React JSX (no TypeScript). This is an all-in-one toolkit for IT professionals and development teams. The entire app is frontend-only — no backend, no APIs. All state and history use localStorage.
+
+---
+
+## TECH STACK
+- React JSX only (no TypeScript)
+- Tailwind CSS
+- shadcn/ui components
+- lucide-react icons
+- No backend whatsoever
+- localStorage for persistence
+
+---
+
+## THEME & DESIGN SYSTEM
+
+Mirror v0.dev's exact aesthetic: sharp black/white minimalism with:
+- Dark mode: background #09090b, surface #18181b, border #27272a, text #fafafa, muted #a1a1aa
+- Light mode: background #ffffff, surface #f4f4f5, border #e4e4e7, text #09090b, muted #71717a
+- Accent: pure white in dark mode, pure black in light mode
+- Font: "Geist" or "Inter" with monospace "Geist Mono" for all code/editor areas
+- Rounded corners: 8px cards, 6px buttons
+- Transitions: 200ms ease on all theme/hover changes
+- Dark/Light mode toggle persisted to localStorage
+- Fully responsive: mobile-first, works flawlessly from 320px to 4K screens
+
+---
+
+## NAVIGATION
+
+Sticky top navbar with:
+- Left: Logo "DevToolkit" with a subtle terminal/code icon, small tagline "Your all-in-one dev utilities"
+- Center (desktop): Tab navigation — JSON Formatter | SQL Formatter | Stringify ↔ JSON | Diff Checker
+- Right: Dark/Light toggle button (sun/moon icon), GitHub icon placeholder
+- On mobile: hamburger menu that opens a full-width dropdown with all nav tabs
+- Active tab shows a white/black bottom border underline accent
+- Navbar has a subtle backdrop-blur with 80% opacity background so content scrolls under it
+
+---
+
+## HOME PAGE — HERO SECTION
+
+Full-viewport hero section that must be stunning and memorable:
+
+Background:
+- CSS grid pattern overlay (1px lines, opacity 0.06) creating a technical graph-paper look
+- Radial gradient glow in center: deep zinc with a soft white core glow
+- Animated floating code snippets drifting upward in the background — small semi-transparent fragments like {"name": "dev"}, SELECT * FROM, JSON.stringify(), diffLines() at varying speeds, opacities, and horizontal positions using CSS keyframe animations
+
+Content:
+- Massive headline: "Every Dev Tool You Need." — bold, white/black, with a blinking cursor "|" at end (CSS animation)
+- Subheadline: "Format JSON. Beautify SQL. Convert strings. Diff anything. All in one place — no installs, no sign-ups, fully offline."
+- Two CTA buttons: Primary "Open JSON Formatter →" (white bg, black text, filled) and Secondary "Explore Tools" (outline style)
+- Row of 4 animated counter/stat cards below buttons: "4 Tools", "100% Offline", "No Sign-up", "localStorage Only" — each with an icon and slight hover lift
+- A live animated preview card below stats: shows a before/after JSON formatting demo that auto-loops using CSS animations — left side shows ugly unformatted JSON, right side shows beautiful formatted output, with a smooth transition every 3 seconds
+
+Scroll indicator:
+- Animated bouncing chevron-down arrow at the bottom of the hero
+
+Feature Cards Section (below hero, above footer):
+- Heading: "Everything you need, nothing you don't."
+- 4-column grid (2 on tablet, 1 on mobile) with cards for each tool
+- Each card: icon, tool name, 1-line description, "Open Tool →" link button
+- Cards lift on hover: translateY(-4px) + soft box-shadow
+
+---
+
+## TOOL 1 — JSON FORMATTER
+
+Full-page tool with two-panel layout (side by side on desktop, stacked vertically on mobile):
+
+INPUT METHODS — User can provide JSON in ANY of these ways:
+- Type or paste directly into the textarea (no file upload required)
+- Paste from clipboard via "Paste" button (uses navigator.clipboard API)
+- Upload a .json or .txt file via file input button
+- Click "Load Sample" to insert a complex nested example JSON
+- Auto-detect and validate instantly on paste (green border = valid, red border = invalid)
+- Clear button with confirmation dialog
+
+LEFT PANEL — Input:
+- Label "Input JSON" with live character count badge (e.g. "2,451 chars")
+- Large monospace textarea, min-height 400px, vertically resizable
+- Real-time validation border (green/red)
+- Inline error tooltip on invalid input
+
+RIGHT PANEL — Output:
+- Label "Formatted Output" with line count badge (e.g. "142 lines")
+- Read-only output area with custom syntax highlighting:
+  - Keys: blue (#60a5fa dark / #2563eb light)
+  - String values: green (#4ade80 dark / #16a34a light)
+  - Numbers: orange (#fb923c)
+  - Booleans: purple (#c084fc)
+  - Null: red (#f87171)
+- Copy to clipboard button with checkmark success toast
+- Download as .json button
+- Download as .txt button
+- Wrap/Unwrap long lines toggle
+- Collapse All / Expand All nested objects toggle
+- Full-screen expand button for output panel (renders in a modal overlay)
+
+TOOLBAR (between or above panels):
+- Indent: 2 Spaces | 4 Spaces | Tab (button group)
+- Format button (primary, large, Ctrl+Enter shortcut shown)
+- Minify button (compresses to one line)
+- Repair JSON toggle (fixes: trailing commas, single quotes, unquoted keys, missing brackets)
+- Sort Keys A→Z toggle
+- Validate Only button (shows error with exact line + column number)
+
+ERROR STATE:
+- Red border on input textarea
+- Error banner below input: "SyntaxError at line 4, col 12: Unexpected token }"
+- That specific line highlighted with a red left border inside the textarea
+
+HISTORY PANEL:
+- Collapsible sidebar or bottom drawer showing last 10 formatted JSONs
+- Each entry: timestamp + first 60 chars of the JSON + "Restore" button
+- Stored in localStorage key "devtoolkit_json_history"
+- "Clear History" button at bottom of panel
+
+---
+
+## TOOL 2 — SQL FORMATTER
+
+Same two-panel layout as JSON Formatter:
+
+INPUT METHODS — User can provide SQL in ANY of these ways:
+- Type or paste directly into the textarea (no upload required)
+- Paste from clipboard via "Paste" button
+- Upload a .sql or .txt file via file input
+- Load Sample button (loads a complex multi-join query with subqueries, CTEs, window functions)
+- Clear button
+
+LEFT PANEL — Input:
+- Label "Input SQL" with character count badge
+- Large monospace textarea, min-height 400px, resizable
+
+RIGHT PANEL — Output:
+- Syntax highlighting:
+  - SQL keywords: bold blue (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY, HAVING, LIMIT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, WITH, AS, ON, AND, OR, NOT, IN, EXISTS, UNION, CASE, WHEN, THEN, ELSE, END, etc.)
+  - String literals: green
+  - Numbers: orange
+  - Comments (-- and /* */): gray italic
+  - Table/column names: default text color
+- Copy button with success toast
+- Download as .sql
+- Download as .txt
+- Line Numbers toggle (shows/hides line number gutter in output)
+- Word Wrap toggle
+
+TOOLBAR:
+- SQL Dialect: Standard SQL | MySQL | PostgreSQL | SQLite | MSSQL | Oracle
+- Indent Size: 2 | 4 | Tab
+- Keyword Case: UPPERCASE | lowercase | Capitalize
+- Comma Position: End of line | Start of line
+- Format button (primary, Ctrl+Enter)
+- Minify button (strips all whitespace → single line)
+
+FORMATTING LOGIC (implemented in JS):
+- Each major clause on its own line (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY, HAVING, LIMIT)
+- Column lists indented under SELECT with each column on its own line
+- JOIN conditions indented under each JOIN clause
+- Subqueries indented properly with wrapping parentheses on their own lines
+- CTEs (WITH clause) formatted cleanly
+- CASE/WHEN/THEN/ELSE/END formatted with indentation
+- Comments preserved and properly placed
+
+HISTORY:
+- Last 10 SQL queries saved to localStorage key "devtoolkit_sql_history"
+- Same UI pattern as JSON history panel
+
+---
+
+## TOOL 3 — STRINGIFY ↔ JSON CONVERTER
+
+Three clearly separated sections with a full explanation header:
+
+SECTION A — Normal JSON → Stringified:
+- Heading: "JSON → Stringify"
+- Input textarea: labeled "Paste or type normal JSON here"
+- User can type directly OR paste OR upload .json file
+- Options row:
+  - Escape unicode: toggle
+  - Include spaces: toggle (pretty vs compact stringify)
+- "Stringify →" button (primary)
+- Output textarea (read-only): shows JSON.stringify() result as a single escaped string
+- Copy output button
+- Download as .txt
+
+SECTION B — Stringified → Normal JSON:
+- Heading: "Stringify → JSON"
+- Input textarea: labeled "Paste stringified JSON here (with or without outer quotes)"
+- User can type directly OR paste OR upload .txt file
+- Handles:
+  - Input with surrounding double quotes (strips them automatically)
+  - Double-escaped strings (\\n → \n, \\t → \t, \\" → ")
+  - Encoded unicode sequences (\u0041 → A)
+  - Nested stringified JSON (JSON inside JSON string — recursively parse toggle)
+- "← Parse to JSON" button (primary)
+- Output area with full JSON syntax highlighting (same as JSON Formatter)
+- Copy button
+- Download as .json
+
+SECTION C — Live Bidirectional Mode:
+- Toggle button at top: "⇄ Enable Live Sync Mode"
+- When enabled: side-by-side two-panel layout
+  - Left panel: "Normal JSON" — editable, fully typeable
+  - Right panel: "Stringified Output" — updates in real-time as user types (debounced 300ms)
+  - Editing right panel also updates left panel in reverse (bidirectional)
+- Error states: red border + error message when either side has invalid content
+- Disabled state shows grayed panels with "Enable Live Sync Mode" prompt in center
+
+SHARED FEATURES:
+- Swap ⇄ button: swaps content from output back to input for reverse conversion
+- Clear All button
+- Examples button: loads 3 sample scenarios (simple, nested, with special characters)
+- Last 10 conversions saved to localStorage key "devtoolkit_stringify_history"
+
+---
+
+## TOOL 4 — UNIVERSAL DIFF CHECKER
+
+The most powerful tool. Works for ANY content — JSON, SQL, JavaScript, HTML, plain text, and more. Users can input by typing, pasting, or uploading — all methods available always.
+
+TOP TOOLBAR:
+- Title "Diff Checker" with badge showing current language mode
+- Language/Mode dropdown:
+    Plain Text | JSON | SQL | JavaScript | TypeScript | Python |
+    HTML | CSS | XML | YAML | Markdown | Java | C/C++ | PHP | Bash/Shell
+- View Mode toggle: "Side by Side" | "Unified"
+- Swap ⇄ button (swaps both panels)
+- Compare button (primary CTA, Ctrl+Enter)
+- Clear All button
+- Options dropdown (gear icon):
+    - Ignore whitespace-only changes toggle
+    - Ignore blank lines toggle
+    - Ignore comments toggle (strips // and /* */ for JS/CSS, -- and /* */ for SQL, # for Python/Bash before comparing)
+    - Ignore key order toggle (JSON only — treats same keys in different order as equal)
+    - Case-insensitive string comparison toggle
+    - Trim trailing whitespace toggle
+    - Show unchanged lines toggle (default: show ±3 lines around changes only)
+    - Inline character diff toggle (highlight exact chars that changed within a line)
+
+TWO INPUT PANELS:
+
+Both panels support ALL three input methods simultaneously — no need to upload a file, user can just type or paste:
+
+LEFT PANEL — "Original":
+- Editable version label (click to rename: "v1", "Before", "Production", etc.)
+- LARGE monospace textarea — user can type or paste directly here at any time
+- Three input buttons below textarea:
+    - "Paste" (clipboard API — pastes instantly without file dialog)
+    - "Upload File" (opens file picker for any text file: .json, .sql, .js, .py, .html, .txt, etc.)
+    - "Sample" (loads relevant example for the selected language mode)
+- Clear button (X icon, top-right of panel)
+- Live character count + line count badges
+
+RIGHT PANEL — "Modified":
+- Same editable version label
+- Same large monospace textarea — type or paste directly
+- Same three buttons: Paste | Upload File | Sample
+- Same clear button and badges
+
+DRAG-TO-RESIZE VERTICAL SPLITTER:
+- A draggable divider bar between the two input panels
+- Visual: thin 2px line with a centered pill handle showing "⋮⋮" drag icon
+- Mouse drag: mousedown on handle → mousemove updates flex-basis of both panels → mouseup ends
+- Touch drag: same with touchstart/touchmove/touchend for mobile
+- Double-click handle: resets to 50/50 split instantly
+- Minimum panel width: 200px (panels can't be dragged smaller than this)
+- Cursor: col-resize when hovering the handle
+
+DIFF OUTPUT SECTION (below inputs, after Compare is clicked):
+
+DIFF SUMMARY BAR (always visible after compare):
+- Pill badges: "X added" (green), "Y removed" (red), "Z modified" (amber), "W unchanged" (gray)
+- Similarity percentage: "87% similar"
+- "Files are identical ✓" shown in green when no differences found
+- "← Prev Change" / "Next Change →" navigation buttons
+- Change counter: "Viewing 3 of 12 changes"
+- Keyboard shortcuts hint: N = next, P = previous
+
+Side-by-Side View:
+- Two synchronized columns with equal widths (or proportional to input splitter)
+- Line number gutter on both sides
+- Color coding:
+    - Added lines: #16a34a20 green background, solid green left border (3px), "+" prefix in gutter
+    - Removed lines: #dc262620 red background, solid red left border (3px), "−" prefix in gutter
+    - Changed lines: #ca8a0420 amber background, amber left border, "~" prefix
+    - Unchanged lines: default background, muted text
+- INLINE CHARACTER-LEVEL DIFF: within changed lines (~), highlight the exact characters that changed using a darker colored background (green for added chars, red for removed chars) — not just whole-line highlighting
+- SYNCHRONIZED SCROLLING: scrolling either panel automatically scrolls the other to the same position
+- COLLAPSED UNCHANGED BLOCKS: unchanged regions collapse to a single clickable row "··· 24 unchanged lines ···" — click to expand. Default: show ±3 lines around each change block
+- Smooth scroll animation when navigating between changes via Prev/Next buttons
+
+Unified View:
+- Single column with full-width diff
+- Same color coding and inline character diff
+- Each changed block shows removed lines (red) followed immediately by added lines (green)
+- Line numbers from both sides shown (left: original line, right: modified line)
+
+LANGUAGE-AWARE DIFF:
+- JSON mode: before comparing, parse both sides as JSON and re-serialize with same indent for accurate structural diff (ignores formatting differences if "Ignore whitespace" is on)
+- SQL mode: optional SQL-aware comparison (normalize whitespace and keyword case before diffing if toggles are on)
+- All other modes: plain text diff with syntax highlighting applied on top of diff colors
+
+EXPORT:
+- "Copy diff as text" button
+- "Download as .txt" (plain text unified diff)
+- "Download as .html" (self-contained styled HTML diff report with embedded CSS — can open in browser)
+- "Download as .patch" (standard unified diff format, git-compatible, works with git apply)
+
+HISTORY:
+- Last 10 comparisons saved to localStorage key "devtoolkit_diff_history"
+- Each entry: language mode + timestamp + first 50 chars of each side
+- Click to restore full comparison
+
+---
+
+## GLOBAL FEATURES (across ALL tools)
+
+KEYBOARD SHORTCUTS:
+- Ctrl+Enter: Run the primary action (Format / Compare / Convert)
+- Ctrl+K: Clear all content in current tool
+- Ctrl+Shift+C: Copy output to clipboard
+- Ctrl+L: Toggle dark/light mode
+- ESC: Close modals, full-screen panels, option dropdowns
+- N / P: Next / Previous change (Diff tool only)
+- "?" key: Open keyboard shortcuts help modal showing all shortcuts
+
+TOAST NOTIFICATION SYSTEM:
+- Positioned: bottom-right, stacked
+- Types:
+    - Success (green): "Copied to clipboard ✓" — auto-dismiss after 2s
+    - Error (red): "Invalid JSON — error at line 4" — stays until user dismisses
+    - Info (blue): "File loaded: schema.json (2.4 KB)" — auto-dismiss after 3s
+    - Warning (amber): "JSON repaired — 3 issues fixed automatically"
+- Toasts slide in from right with smooth animation
+- X button to dismiss early
+
+SETTINGS PANEL (gear icon in navbar, opens a slide-over or modal):
+- Default indent size: 2 / 4 / Tab (radio)
+- Default SQL dialect (dropdown)
+- Auto-format on paste: toggle
+- Auto-detect language in Diff: toggle
+- Save history: toggle (default on)
+- Max history entries: 5 / 10 / 20 (radio)
+- "Clear All History" button (clears all 4 history localStorage keys with confirmation)
+- "Reset All Settings" button
+- All settings persisted to localStorage key "devtoolkit_settings"
+
+KEYBOARD SHORTCUTS MODAL:
+- Triggered by "?" key or a "⌨ Shortcuts" button in toolbar
+- Modal with clean table layout showing all shortcuts grouped by tool
+
+RESPONSIVE BEHAVIOR:
+- Mobile (<768px):
+    - All side-by-side panels stack vertically
+    - Toolbar buttons collapse to icon-only with tooltips
+    - Diff side-by-side switches to tabbed: "Original" tab | "Modified" tab | "Diff" tab
+    - History panel becomes a full-screen drawer (slides up from bottom)
+    - Settings become a full-screen modal
+- Tablet (768–1024px):
+    - 2-column layouts, compact toolbars with labels
+    - Diff panels side by side but smaller
+- Desktop (>1024px):
+    - Full side-by-side layouts
+    - All toolbar labels visible
+    - History as collapsible sidebar
+
+LOADING STATES:
+- For inputs >100KB: "Processing large file..." spinner overlay on output panel
+- Debounce all live-sync/real-time operations by 300ms
+
+EMPTY STATES:
+- Each tool shows a friendly empty state when no content exists
+- Icon + primary instruction text + secondary hint
+- Example: clipboard icon + "Paste your JSON here to get started" + "Or click 'Load Sample' to try an example"
+
+---
+
+## FOOTER
+
+Clean minimal footer:
+- "DevToolkit — Built for developers, by developers"
+- Quick links to all 4 tools
+- "🔒 All processing happens locally in your browser. Your data never leaves your device."
+- Dark/Light toggle (mirrors navbar)
+- Version number: "v1.0.0"
+
+---
+
+## FILE STRUCTURE
+
+Organize into:
+/src
+  /components
+    Navbar.jsx
+    Hero.jsx
+    FeatureCards.jsx
+    Footer.jsx
+    Toast.jsx
+    ToastProvider.jsx
+    Settings.jsx
+    KeyboardShortcutsModal.jsx
+    HistoryPanel.jsx
+    ResizableSplitter.jsx
+    SyntaxHighlight.jsx
+  /tools
+    JsonFormatter.jsx
+    SqlFormatter.jsx
+    StringifyConverter.jsx
+    DiffChecker.jsx
+  /utils
+    jsonUtils.js        (format, minify, repair, validate, sort keys)
+    sqlUtils.js         (format, minify, keyword casing, dialect rules)
+    diffUtils.js        (line diff, char diff, unified diff, patch export)
+    syntaxUtils.js      (syntax highlighting for JSON, SQL, JS, etc.)
+    storage.js          (localStorage read/write helpers with error handling)
+    fileUtils.js        (file upload reader, download helpers)
+    clipboardUtils.js   (navigator.clipboard with fallback)
+  /hooks
+    useLocalStorage.js
+    useTheme.js
+    useToast.js
+    useKeyboardShortcuts.js
+    useResizableSplitter.js
+  App.jsx
+  main.jsx
+  index.css
+
+---
+
+## CRITICAL REQUIREMENTS
+
+1. Every single button must be functional — no placeholder buttons
+2. Users MUST be able to type or paste directly into every input area — file upload is an additional option, never the only option
+3. The Paste button (clipboard API) must work alongside direct typing in all tools
+4. The drag-to-resize splitter in Diff Checker must work with both mouse and touch
+5. Synchronized scrolling in diff side-by-side must be smooth and accurate
+6. All localStorage reads must have try/catch (storage may be disabled in some browsers)
+7. The app must work completely offline — no CDN calls for functionality
+8. Syntax highlighting must not use innerHTML unsafely — use React elements with spans
+9. All file downloads must use URL.createObjectURL with proper cleanup
+10. The entire app must feel like a polished, production SaaS product
+
+Build this as a complete, fully working application. Make it feel like a product the whole engineering team would bookmark on day one.

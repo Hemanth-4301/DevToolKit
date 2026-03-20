@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "DevToolkit"
+version = "1.0.0"
+id = "artifacts/devtoolkit"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21583
+
+[services.development]
+run = "pnpm --filter @workspace/devtoolkit run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/devtoolkit", "run", "build" ]
+publicDir = "artifacts/devtoolkit/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21583"
+BASE_PATH = "/"
