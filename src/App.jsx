@@ -9,7 +9,14 @@ import { ToastContainer } from "./components/Toast";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
-  const [devMode, setDevMode] = useState(true);
+  const [devMode, setDevMode] = useState(() => {
+    const saved = localStorage.getItem("devtoolkit_devmode");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("devtoolkit_devmode", JSON.stringify(devMode));
+  }, [devMode]);
 
   useEffect(() => {
     const saved = localStorage.getItem("devtoolkit_theme") || "dark";
@@ -34,18 +41,31 @@ export default function App() {
 
   const renderPage = () => {
     switch (activeTab) {
-      case "home": return <HomePage onTabChange={setActiveTab} devMode={devMode} />;
-      case "json": return <JsonFormatter />;
-      case "sql": return <SqlFormatter />;
-      case "diff": return <DiffChecker />;
-      case "stringify": return <StringifyConverter />;
-      default: return <HomePage onTabChange={setActiveTab} devMode={devMode} />;
+      case "home":
+        return <HomePage onTabChange={setActiveTab} devMode={devMode} />;
+      case "json":
+        return <JsonFormatter />;
+      case "sql":
+        return <SqlFormatter />;
+      case "diff":
+        return <DiffChecker />;
+      case "stringify":
+        return <StringifyConverter />;
+      default:
+        return <HomePage onTabChange={setActiveTab} devMode={devMode} />;
     }
   };
 
   return (
-    <div className={`min-h-screen bg-background text-foreground scanline-overlay`}>
-      <Navbar activeTab={activeTab} onTabChange={setActiveTab} devMode={devMode} onDevModeToggle={() => setDevMode(d => !d)} />
+    <div
+      className={`min-h-screen bg-background text-foreground scanline-overlay`}
+    >
+      <Navbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        devMode={devMode}
+        onDevModeToggle={() => setDevMode((d) => !d)}
+      />
       <main>{renderPage()}</main>
       <ToastContainer />
     </div>
