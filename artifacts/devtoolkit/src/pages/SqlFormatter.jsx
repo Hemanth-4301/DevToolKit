@@ -333,7 +333,7 @@ export default function SqlFormatter() {
             onChange={e => { setInput(e.target.value); setOutput(""); }}
             onKeyDown={e => { if (e.ctrlKey && e.key === "Enter") handleFormat(); }}
             placeholder='Paste SQL here or click "Sample" to load an example...'
-            className="w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
+            className="w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
           />
         </div>
 
@@ -363,7 +363,7 @@ export default function SqlFormatter() {
             </div>
           </div>
           <div className={cn(
-            "w-full min-h-[420px] rounded-lg border border-border bg-card font-mono text-xs overflow-auto flex",
+            "w-full min-h-[420px] rounded-lg border border-border bg-card font-mono text-sm overflow-auto flex",
             wrap ? "" : "overflow-x-auto"
           )}>
             {lineNums && output && (

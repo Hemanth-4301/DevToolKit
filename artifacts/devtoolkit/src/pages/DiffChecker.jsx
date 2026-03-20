@@ -438,7 +438,7 @@ function PanelInput({ label, onLabelChange, text, onChange, onPaste, onUpload, o
         value={text}
         onChange={e => onChange(e.target.value)}
         placeholder="Type or paste content here..."
-        className="w-full min-h-[280px] p-4 rounded-lg border border-border bg-card font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
+        className="w-full min-h-[280px] p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
       />
     </div>
   );

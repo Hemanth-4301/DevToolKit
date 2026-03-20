@@ -264,7 +264,7 @@ export default function JsonFormatter() {
             onKeyDown={e => { if (e.ctrlKey && e.key === "Enter") handleFormat(); }}
             placeholder='Paste JSON here or click "Sample" to load an example...'
             className={cn(
-              "w-full min-h-[420px] p-4 rounded-lg border bg-card font-mono text-xs resize-y transition-colors focus:outline-none focus:ring-1",
+              "w-full min-h-[420px] p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
               inputInvalid ? "border-red-500/50 focus:ring-red-500/30" : inputValid ? "border-green-500/50 focus:ring-green-500/30" : "border-border focus:ring-ring/30"
             )}
           />
@@ -305,7 +305,7 @@ export default function JsonFormatter() {
             </div>
           </div>
           <div className={cn(
-            "w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-xs overflow-auto",
+            "w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
             wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre overflow-x-auto"
           )}>
             {output ? <code>{highlightJson(output)}</code> : (
@@ -364,7 +364,7 @@ export default function JsonFormatter() {
               <Maximize2 className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-xs whitespace-pre-wrap">
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-sm whitespace-pre-wrap">
             {output ? <code>{highlightJson(output)}</code> : <span className="text-muted-foreground">No output yet.</span>}
           </div>
         </div>

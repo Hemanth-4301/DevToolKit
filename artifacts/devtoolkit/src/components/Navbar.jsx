@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Terminal, Sun, Moon, Github, Menu, X, Code2 } from "lucide-react";
+import { Terminal, Sun, Moon, Menu, X, Cpu } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../hooks/use-theme";
 
@@ -7,11 +7,11 @@ const TABS = [
   { id: "home", label: "Home" },
   { id: "json", label: "JSON Formatter" },
   { id: "sql", label: "SQL Formatter" },
-  { id: "stringify", label: "Stringify ↔ JSON" },
   { id: "diff", label: "Diff Checker" },
+  { id: "stringify", label: "Stringify ↔ JSON" },
 ];
 
-export default function Navbar({ activeTab, onTabChange }) {
+export default function Navbar({ activeTab, onTabChange, devMode, onDevModeToggle }) {
   const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -22,11 +22,14 @@ export default function Navbar({ activeTab, onTabChange }) {
           onClick={() => onTabChange("home")}
           className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-foreground text-background">
+          <div className={cn(
+            "flex items-center justify-center w-7 h-7 rounded-md transition-all",
+            devMode ? "bg-green-400 text-black shadow-[0_0_10px_rgba(0,255,0,0.5)]" : "bg-foreground text-background"
+          )}>
             <Terminal className="h-4 w-4" />
           </div>
           <div className="hidden sm:block">
-            <span className="font-bold text-sm tracking-tight">DevToolkit</span>
+            <span className={cn("font-bold text-sm tracking-tight", devMode && "text-green-400")}>DevToolkit</span>
             <span className="text-xs text-muted-foreground ml-1.5 hidden lg:inline">Your all-in-one dev utilities</span>
           </div>
         </button>
@@ -39,28 +42,41 @@ export default function Navbar({ activeTab, onTabChange }) {
               className={cn(
                 "px-3 py-1.5 text-sm rounded-md transition-all duration-200 relative whitespace-nowrap",
                 activeTab === tab.id
-                  ? "text-foreground font-medium"
+                  ? devMode ? "text-green-400 font-medium" : "text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-foreground rounded-full" />
+                <span className={cn(
+                  "absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full",
+                  devMode ? "bg-green-400 shadow-[0_0_6px_rgba(0,255,0,0.8)]" : "bg-foreground"
+                )} />
               )}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={onDevModeToggle}
+            title="Toggle Developer Mode"
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-mono font-medium border transition-all duration-200",
+              devMode
+                ? "border-green-500/60 bg-green-500/10 text-green-400 shadow-[0_0_12px_rgba(0,255,0,0.25)]"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
+            <Cpu className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{devMode ? "EXIT DEV" : "DEV MODE"}</span>
+          </button>
           <button
             onClick={toggle}
             className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
             title="Toggle theme"
           >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all" title="GitHub">
-            <Github className="h-4 w-4" />
+            {theme === "dark" || devMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <button
             className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
@@ -87,6 +103,17 @@ export default function Navbar({ activeTab, onTabChange }) {
               {tab.label}
             </button>
           ))}
+          <div className="px-4 py-2 border-t border-border">
+            <button
+              onClick={onDevModeToggle}
+              className={cn(
+                "w-full text-left px-2 py-2 text-sm font-mono transition-colors rounded-md",
+                devMode ? "text-green-400" : "text-muted-foreground"
+              )}
+            >
+              {devMode ? "⬛ EXIT DEV MODE" : "💻 DEVELOPER MODE"}
+            </button>
+          </div>
         </div>
       )}
     </nav>
