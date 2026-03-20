@@ -9,7 +9,7 @@ import { ToastContainer } from "./components/Toast";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
-  const [devMode, setDevMode] = useState(false);
+  const [devMode, setDevMode] = useState(true);
 
   useEffect(() => {
     const saved = localStorage.getItem("devtoolkit_theme") || "dark";
