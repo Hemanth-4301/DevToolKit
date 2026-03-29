@@ -91,10 +91,7 @@ function highlightJson(jsonStr) {
     const val = match[0];
     if (val.endsWith(":")) {
       tokens.push(
-        <span
-          key={key++}
-          className="text-blue-400 dark:text-blue-400 text-blue-600"
-        >
+        <span key={key++} className="text-blue-600 dark:text-blue-400">
           {val}
         </span>,
       );
@@ -195,24 +192,37 @@ export default function JsonFormatter() {
     setOutput("");
   };
 
+  const formatJsonText = useCallback(
+    (text) => {
+      if (!text.trim()) {
+        setOutput("");
+        setError(null);
+        return;
+      }
+      try {
+        const toparse = repairMode ? repairJson(text) : text;
+        let parsed = JSON.parse(toparse);
+        if (sortKeys) parsed = sortKeysDeep(parsed);
+        const indentVal = indent === "tab" ? "\t" : indent;
+        const formatted = JSON.stringify(parsed, null, indentVal);
+        setOutput(formatted);
+        setError(null);
+        saveHistory(text, formatted);
+        setHistory(getHistory());
+      } catch (e) {
+        setError(e.message);
+        setOutput("");
+      }
+    },
+    [repairMode, sortKeys, indent],
+  );
+
   const handleFormat = () => {
     if (!input.trim()) {
       setError("Input is empty.");
       return;
     }
-    try {
-      const toparse = repairMode ? repairJson(input) : input;
-      let parsed = JSON.parse(toparse);
-      if (sortKeys) parsed = sortKeysDeep(parsed);
-      const indentVal = indent === "tab" ? "\t" : indent;
-      const formatted = JSON.stringify(parsed, null, indentVal);
-      setOutput(formatted);
-      setError(null);
-      saveHistory(input, formatted);
-      setHistory(getHistory());
-    } catch (e) {
-      setError(e.message);
-    }
+    formatJsonText(input);
   };
 
   const handleMinify = () => {
@@ -242,6 +252,7 @@ export default function JsonFormatter() {
   const handlePaste = async () => {
     const text = await navigator.clipboard.readText();
     handleInput(text);
+    formatJsonText(text);
   };
 
   const handleUpload = (e) => {
@@ -278,59 +289,61 @@ export default function JsonFormatter() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg border border-border bg-card">
-        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
-          {[2, 4, "tab"].map((v) => (
-            <button
-              key={v}
-              onClick={() => setIndent(v)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium transition-colors",
-                indent === v
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
-              )}
-            >
-              {v === "tab" ? "Tab" : `${v} Spaces`}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+            {[2, 4, "tab"].map((v) => (
+              <button
+                key={v}
+                onClick={() => setIndent(v)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors",
+                  indent === v
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                {v === "tab" ? "Tab" : `${v} Spaces`}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleMinify}
+            className="px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+          >
+            Minify
+          </button>
+
+          <button
+            onClick={() => setRepairMode((r) => !r)}
+            className={cn(
+              "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
+              repairMode
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                : "border-border hover:bg-accent",
+            )}
+          >
+            Repair JSON {repairMode ? "ON" : "OFF"}
+          </button>
+
+          <button
+            onClick={() => setSortKeys((s) => !s)}
+            className={cn(
+              "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
+              sortKeys
+                ? "border-purple-500/50 bg-purple-500/10 text-purple-400"
+                : "border-border hover:bg-accent",
+            )}
+          >
+            Sort Keys {sortKeys ? "ON" : "OFF"}
+          </button>
         </div>
 
         <button
           onClick={handleFormat}
-          className="px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+          className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
         >
           Format <span className="opacity-60 ml-1">Ctrl+Enter</span>
-        </button>
-
-        <button
-          onClick={handleMinify}
-          className="px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
-        >
-          Minify
-        </button>
-
-        <button
-          onClick={() => setRepairMode((r) => !r)}
-          className={cn(
-            "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
-            repairMode
-              ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
-              : "border-border hover:bg-accent",
-          )}
-        >
-          Repair JSON {repairMode ? "ON" : "OFF"}
-        </button>
-
-        <button
-          onClick={() => setSortKeys((s) => !s)}
-          className={cn(
-            "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
-            sortKeys
-              ? "border-purple-500/50 bg-purple-500/10 text-purple-400"
-              : "border-border hover:bg-accent",
-          )}
-        >
-          Sort Keys {sortKeys ? "ON" : "OFF"}
         </button>
       </div>
 
@@ -389,6 +402,12 @@ export default function JsonFormatter() {
           <textarea
             value={input}
             onChange={(e) => handleInput(e.target.value)}
+            onPaste={(e) => {
+              e.preventDefault();
+              const pasted = e.clipboardData.getData("text");
+              handleInput(pasted);
+              formatJsonText(pasted);
+            }}
             onKeyDown={(e) => {
               if (e.ctrlKey && e.key === "Enter") handleFormat();
             }}

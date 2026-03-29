@@ -10,6 +10,7 @@ import {
   Check,
   ClipboardPaste,
   AlertCircle,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
@@ -205,6 +206,7 @@ export default function StringifyConverter() {
   const [stringInput, setStringInput] = useState(initialState.stringInput);
   const [jsonOutput, setJsonOutput] = useState(initialState.jsonOutput);
   const [parseError, setParseError] = useState(null);
+  const [expandedOutput, setExpandedOutput] = useState(null);
 
   const debounceRef = useRef(null);
   const fileRefA = useRef(null);
@@ -254,6 +256,43 @@ export default function StringifyConverter() {
     runLiveStringify(liveJson);
   }, [liveMode]);
 
+  const runStringifyFromInput = useCallback(
+    (value) => {
+      if (!value.trim()) {
+        setStringifiedOutput("");
+        setJsonifyError(null);
+        return;
+      }
+      try {
+        const result = doStringify(value, prettyStringify);
+        setStringifiedOutput(result);
+        setJsonifyError(null);
+        saveHistory("json→string", value);
+      } catch (e) {
+        setJsonifyError(e.message);
+        setStringifiedOutput("");
+      }
+    },
+    [prettyStringify],
+  );
+
+  const runParseFromInput = useCallback((value) => {
+    if (!value.trim()) {
+      setJsonOutput("");
+      setParseError(null);
+      return;
+    }
+    try {
+      const result = doParse(value);
+      setJsonOutput(result);
+      setParseError(null);
+      saveHistory("string→json", value);
+    } catch (e) {
+      setParseError(e.message);
+      setJsonOutput("");
+    }
+  }, []);
+
   const handleStringify = () => {
     if (!jsonInput.trim()) {
       addToast({
@@ -263,15 +302,7 @@ export default function StringifyConverter() {
       });
       return;
     }
-    try {
-      const result = doStringify(jsonInput, prettyStringify);
-      setStringifiedOutput(result);
-      setJsonifyError(null);
-      saveHistory("json→string", jsonInput);
-    } catch (e) {
-      setJsonifyError(e.message);
-      setStringifiedOutput("");
-    }
+    runStringifyFromInput(jsonInput);
   };
 
   const handleParse = () => {
@@ -283,15 +314,7 @@ export default function StringifyConverter() {
       });
       return;
     }
-    try {
-      const result = doParse(stringInput);
-      setJsonOutput(result);
-      setParseError(null);
-      saveHistory("string→json", stringInput);
-    } catch (e) {
-      setParseError(e.message);
-      setJsonOutput("");
-    }
+    runParseFromInput(stringInput);
   };
 
   if (liveMode) {
@@ -466,9 +489,9 @@ export default function StringifyConverter() {
                 <div className="flex gap-1">
                   <button
                     onClick={async () => {
-                      setJsonInput(await navigator.clipboard.readText());
-                      setStringifiedOutput("");
-                      setJsonifyError(null);
+                      const pasted = await navigator.clipboard.readText();
+                      setJsonInput(pasted);
+                      runStringifyFromInput(pasted);
                     }}
                     className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
                   >
@@ -500,9 +523,9 @@ export default function StringifyConverter() {
                       if (!f) return;
                       const r = new FileReader();
                       r.onload = (ev) => {
-                        setJsonInput(ev.target.result);
-                        setStringifiedOutput("");
-                        setJsonifyError(null);
+                        const text = String(ev.target.result || "");
+                        setJsonInput(text);
+                        runStringifyFromInput(text);
                       };
                       r.readAsText(f);
                       e.target.value = "";
@@ -516,6 +539,12 @@ export default function StringifyConverter() {
                   setJsonInput(e.target.value);
                   setStringifiedOutput("");
                   setJsonifyError(null);
+                }}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text");
+                  setJsonInput(pasted);
+                  runStringifyFromInput(pasted);
                 }}
                 placeholder={'{\n  "name": "Alice",\n  "age": 30\n}'}
                 className={cn(
@@ -539,6 +568,14 @@ export default function StringifyConverter() {
                   Output — Stringified
                 </span>
                 <div className="flex gap-1">
+                  {stringifiedOutput && (
+                    <button
+                      onClick={() => setExpandedOutput("stringified")}
+                      className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {stringifiedOutput && <CopyBtn text={stringifiedOutput} />}
                   {stringifiedOutput && (
                     <DownloadBtn
@@ -575,7 +612,7 @@ export default function StringifyConverter() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button
               onClick={handleStringify}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
@@ -621,9 +658,9 @@ export default function StringifyConverter() {
                 <div className="flex gap-1">
                   <button
                     onClick={async () => {
-                      setStringInput(await navigator.clipboard.readText());
-                      setJsonOutput("");
-                      setParseError(null);
+                      const pasted = await navigator.clipboard.readText();
+                      setStringInput(pasted);
+                      runParseFromInput(pasted);
                     }}
                     className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
                   >
@@ -655,9 +692,9 @@ export default function StringifyConverter() {
                       if (!f) return;
                       const r = new FileReader();
                       r.onload = (ev) => {
-                        setStringInput(ev.target.result);
-                        setJsonOutput("");
-                        setParseError(null);
+                        const text = String(ev.target.result || "");
+                        setStringInput(text);
+                        runParseFromInput(text);
                       };
                       r.readAsText(f);
                       e.target.value = "";
@@ -671,6 +708,12 @@ export default function StringifyConverter() {
                   setStringInput(e.target.value);
                   setJsonOutput("");
                   setParseError(null);
+                }}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text");
+                  setStringInput(pasted);
+                  runParseFromInput(pasted);
                 }}
                 placeholder={'"{\\"name\\":\\"Alice\\",\\"age\\":30}"'}
                 className={cn(
@@ -694,6 +737,14 @@ export default function StringifyConverter() {
                   Output — Parsed JSON
                 </span>
                 <div className="flex gap-1">
+                  {jsonOutput && (
+                    <button
+                      onClick={() => setExpandedOutput("parsed")}
+                      className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {jsonOutput && <CopyBtn text={jsonOutput} />}
                   {jsonOutput && (
                     <DownloadBtn
@@ -721,7 +772,7 @@ export default function StringifyConverter() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button
               onClick={handleParse}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
@@ -743,6 +794,31 @@ export default function StringifyConverter() {
           </div>
         </div>
       </div>
+
+      {expandedOutput && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col p-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-semibold">
+              {expandedOutput === "stringified"
+                ? "Stringified Output"
+                : "Parsed JSON Output"}
+            </span>
+            <button
+              onClick={() => setExpandedOutput(null)}
+              className="p-2 rounded-lg hover:bg-accent transition-colors"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-sm whitespace-pre-wrap break-all">
+            {expandedOutput === "stringified"
+              ? stringifiedOutput || "No output yet."
+              : jsonOutput
+                ? highlightJson(jsonOutput)
+                : "No output yet."}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

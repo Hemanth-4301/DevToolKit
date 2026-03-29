@@ -11,6 +11,7 @@ import {
   ClipboardPaste,
   RotateCcw,
   FileText,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
@@ -356,18 +357,27 @@ export default function SqlFormatter() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState(getHistory);
   const [copied, setCopied] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     setState({ input, output });
   }, [input, output]);
 
+  const formatSqlText = (text) => {
+    if (!text.trim()) {
+      setOutput("");
+      return;
+    }
+    const formatted = formatSQL(text, { indentSize, keyCase, commaPos });
+    setOutput(formatted);
+    saveHistory(text, formatted);
+    setHistory(getHistory());
+  };
+
   const handleFormat = () => {
     if (!input.trim()) return;
-    const formatted = formatSQL(input, { indentSize, keyCase, commaPos });
-    setOutput(formatted);
-    saveHistory(input, formatted);
-    setHistory(getHistory());
+    formatSqlText(input);
   };
 
   const handleMinify = () => {
@@ -387,7 +397,7 @@ export default function SqlFormatter() {
   const handlePaste = async () => {
     const text = await navigator.clipboard.readText();
     setInput(text);
-    setOutput("");
+    formatSqlText(text);
   };
 
   const handleUpload = (e) => {
@@ -395,8 +405,9 @@ export default function SqlFormatter() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setInput(ev.target.result);
-      setOutput("");
+      const text = String(ev.target.result || "");
+      setInput(text);
+      formatSqlText(text);
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -426,85 +437,88 @@ export default function SqlFormatter() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg border border-border bg-card">
-        <select
-          value={dialect}
-          onChange={(e) => setDialect(e.target.value)}
-          className="px-2 py-1.5 text-xs rounded-md border border-border bg-background hover:bg-accent transition-colors focus:outline-none"
-        >
-          {[
-            "Standard SQL",
-            "MySQL",
-            "PostgreSQL",
-            "SQLite",
-            "MSSQL",
-            "Oracle",
-          ].map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={dialect}
+            onChange={(e) => setDialect(e.target.value)}
+            className="px-2 py-1.5 text-xs rounded-md border border-border bg-background hover:bg-accent transition-colors focus:outline-none"
+          >
+            {[
+              "Standard SQL",
+              "MySQL",
+              "PostgreSQL",
+              "SQLite",
+              "MSSQL",
+              "Oracle",
+            ].map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
 
-        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
-          {[2, 4, "tab"].map((v) => (
-            <button
-              key={v}
-              onClick={() => setIndentSize(v)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium transition-colors",
-                indentSize === v
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
-              )}
-            >
-              {v === "tab" ? "Tab" : v}
-            </button>
-          ))}
-        </div>
+          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+            {[2, 4, "tab"].map((v) => (
+              <button
+                key={v}
+                onClick={() => setIndentSize(v)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors",
+                  indentSize === v
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                {v === "tab" ? "Tab" : v}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
-          {["UPPERCASE", "lowercase", "Capitalize"].map((c) => (
-            <button
-              key={c}
-              onClick={() => setKeyCase(c)}
-              className={cn(
-                "px-2.5 py-1.5 text-xs font-medium transition-colors",
-                keyCase === c
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+            {["UPPERCASE", "lowercase", "Capitalize"].map((c) => (
+              <button
+                key={c}
+                onClick={() => setKeyCase(c)}
+                className={cn(
+                  "px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  keyCase === c
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
-          {["end", "start"].map((p) => (
-            <button
-              key={p}
-              onClick={() => setCommaPos(p)}
-              className={cn(
-                "px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
-                commaPos === p
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
-              )}
-            >
-              Comma {p}
-            </button>
-          ))}
+          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+            {["end", "start"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setCommaPos(p)}
+                className={cn(
+                  "px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
+                  commaPos === p
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                Comma {p}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleMinify}
+            className="px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+          >
+            Minify
+          </button>
         </div>
 
         <button
           onClick={handleFormat}
-          className="px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+          className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
         >
           Format <span className="opacity-60 ml-1">Ctrl+Enter</span>
-        </button>
-        <button
-          onClick={handleMinify}
-          className="px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
-        >
-          Minify
         </button>
       </div>
 
@@ -565,6 +579,12 @@ export default function SqlFormatter() {
               setInput(e.target.value);
               setOutput("");
             }}
+            onPaste={(e) => {
+              e.preventDefault();
+              const pasted = e.clipboardData.getData("text");
+              setInput(pasted);
+              formatSqlText(pasted);
+            }}
             onKeyDown={(e) => {
               if (e.ctrlKey && e.key === "Enter") handleFormat();
             }}
@@ -623,6 +643,12 @@ export default function SqlFormatter() {
                 className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
               >
                 <Download className="h-3 w-3" /> .txt
+              </button>
+              <button
+                onClick={() => setShowFullscreen(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+              >
+                <Maximize2 className="h-3 w-3" />
               </button>
             </div>
           </div>
@@ -714,6 +740,27 @@ export default function SqlFormatter() {
           </div>
         )}
       </div>
+
+      {showFullscreen && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col p-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-semibold">Formatted SQL</span>
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="p-2 rounded-lg hover:bg-accent transition-colors"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-sm whitespace-pre-wrap">
+            {output ? (
+              highlightSQL(output)
+            ) : (
+              <span className="text-muted-foreground">No output yet.</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

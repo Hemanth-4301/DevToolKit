@@ -9,6 +9,7 @@ import {
   Check,
   ClipboardPaste,
   FileText,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
@@ -162,9 +163,6 @@ function computeInlineCharDiff(a, b) {
 
 function SideBySideDiff({ diff, options }) {
   const CONTEXT = options.showUnchanged ? Infinity : 3;
-  const changed = new Set(
-    diff.filter((d) => d.type !== "equal").map((_, i) => i),
-  );
 
   const visible = diff.reduce((acc, item, idx) => {
     if (item.type !== "equal") {
@@ -227,7 +225,7 @@ function SideBySideDiff({ diff, options }) {
       leftContent = charDiff
         .map((cd, ci) =>
           cd.type === "removed" ? (
-            <mark key={ci} className="bg-red-500/30 text-red-300">
+            <mark key={ci} className="bg-red-500/25 text-foreground rounded-sm">
               {cd.text}
             </mark>
           ) : cd.type === "equal" ? (
@@ -238,7 +236,10 @@ function SideBySideDiff({ diff, options }) {
       rightContent = charDiff
         .map((cd, ci) =>
           cd.type === "added" ? (
-            <mark key={ci} className="bg-green-500/30 text-green-300">
+            <mark
+              key={ci}
+              className="bg-green-500/25 text-foreground rounded-sm"
+            >
               {cd.text}
             </mark>
           ) : cd.type === "equal" ? (
@@ -257,7 +258,6 @@ function SideBySideDiff({ diff, options }) {
           className={cn(
             "flex-1 px-4 py-1 min-w-0 whitespace-pre-wrap break-all",
             leftBg,
-            item.type === "removed" && "text-red-400",
           )}
         >
           {leftContent}
@@ -269,7 +269,6 @@ function SideBySideDiff({ diff, options }) {
           className={cn(
             "flex-1 px-4 py-1 min-w-0 whitespace-pre-wrap break-all",
             rightBg,
-            item.type === "added" && "text-green-400",
           )}
         >
           {rightContent}
@@ -315,9 +314,9 @@ function UnifiedDiff({ diff, options }) {
       item.type === "added" ? "+" : item.type === "removed" ? "−" : " ";
     const rowBg =
       item.type === "added"
-        ? "bg-green-500/10 text-green-400"
+        ? "bg-green-500/10"
         : item.type === "removed"
-          ? "bg-red-500/10 text-red-400"
+          ? "bg-red-500/10"
           : "";
     const lineNum =
       item.rightIdx !== undefined
@@ -356,6 +355,7 @@ export default function DiffChecker() {
   const [rightText, setRightText] = useState(initialState.rightText);
   const [diff, setDiff] = useState(null);
   const [showOptions, setShowOptions] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const [options, setOptions] = useState({
     ignoreWhitespace: false,
     ignoreBlankLines: false,
@@ -371,6 +371,15 @@ export default function DiffChecker() {
   useEffect(() => {
     setState({ leftText, rightText });
   }, [leftText, rightText]);
+
+  useEffect(() => {
+    if (!leftText.trim() || !rightText.trim()) {
+      setDiff(null);
+      return;
+    }
+    const result = computeDiff(leftText, rightText, options);
+    setDiff(result);
+  }, [leftText, rightText, options]);
 
   const handleCompare = () => {
     if (!leftText && !rightText) {
@@ -422,87 +431,89 @@ export default function DiffChecker() {
             Compare any two texts side-by-side or unified.
           </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <select
-            value={lang}
-            onChange={(e) => {
-              setLang(e.target.value);
-              setDiff(null);
-            }}
-            className="px-2 py-1.5 text-xs rounded-md border border-border bg-background hover:bg-accent focus:outline-none"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l}>{l}</option>
-            ))}
-          </select>
+        <div className="ml-auto flex flex-wrap items-center gap-2 w-full xl:w-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={lang}
+              onChange={(e) => {
+                setLang(e.target.value);
+                setDiff(null);
+              }}
+              className="px-2 py-1.5 text-xs rounded-md border border-border bg-background hover:bg-accent focus:outline-none"
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l}>{l}</option>
+              ))}
+            </select>
 
-          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+            <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+              <button
+                onClick={() => setViewMode("side")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors",
+                  viewMode === "side"
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                Side by Side
+              </button>
+              <button
+                onClick={() => setViewMode("unified")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors",
+                  viewMode === "unified"
+                    ? "bg-foreground text-background"
+                    : "hover:bg-accent text-muted-foreground",
+                )}
+              >
+                Unified
+              </button>
+            </div>
+
             <button
-              onClick={() => setViewMode("side")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "side"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
-              )}
+              onClick={handleSwap}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
             >
-              Side by Side
+              <ArrowLeftRight className="h-3 w-3" /> Swap
             </button>
+
             <button
-              onClick={() => setViewMode("unified")}
+              onClick={handleSample}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+            >
+              <FileText className="h-3 w-3" /> Sample
+            </button>
+
+            <button
+              onClick={() => setShowOptions((o) => !o)}
               className={cn(
-                "px-3 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "unified"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-accent text-muted-foreground",
+                "flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
+                showOptions
+                  ? "border-foreground bg-accent"
+                  : "border-border hover:bg-accent",
               )}
             >
-              Unified
+              <Settings className="h-3 w-3" /> Options
+            </button>
+
+            <button
+              onClick={() => {
+                setLeftText("");
+                setRightText("");
+                setDiff(null);
+              }}
+              className="px-3 py-1.5 rounded-md border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           </div>
 
           <button
-            onClick={handleSwap}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
-          >
-            <ArrowLeftRight className="h-3 w-3" /> Swap
-          </button>
-
-          <button
-            onClick={handleSample}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
-          >
-            <FileText className="h-3 w-3" /> Sample
-          </button>
-
-          <button
-            onClick={() => setShowOptions((o) => !o)}
-            className={cn(
-              "flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
-              showOptions
-                ? "border-foreground bg-accent"
-                : "border-border hover:bg-accent",
-            )}
-          >
-            <Settings className="h-3 w-3" /> Options
-          </button>
-
-          <button
             onClick={handleCompare}
-            className="px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+            className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
           >
             Compare <span className="opacity-60 ml-1">Ctrl+Enter</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setLeftText("");
-              setRightText("");
-              setDiff(null);
-            }}
-            className="px-3 py-1.5 rounded-md border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -542,20 +553,16 @@ export default function DiffChecker() {
           text={leftText}
           onChange={(t) => {
             setLeftText(t);
-            setDiff(null);
           }}
           onPaste={async () => {
             const t = await navigator.clipboard.readText();
             setLeftText(t);
-            setDiff(null);
           }}
           onUpload={(t) => {
             setLeftText(t);
-            setDiff(null);
           }}
           onClear={() => {
             setLeftText("");
-            setDiff(null);
           }}
           fileRef={leftFile}
         />
@@ -565,20 +572,16 @@ export default function DiffChecker() {
           text={rightText}
           onChange={(t) => {
             setRightText(t);
-            setDiff(null);
           }}
           onPaste={async () => {
             const t = await navigator.clipboard.readText();
             setRightText(t);
-            setDiff(null);
           }}
           onUpload={(t) => {
             setRightText(t);
-            setDiff(null);
           }}
           onClear={() => {
             setRightText("");
-            setDiff(null);
           }}
           fileRef={rightFile}
         />
@@ -616,10 +619,52 @@ export default function DiffChecker() {
               >
                 <Copy className="h-3 w-3" /> Copy Diff
               </button>
+              <button
+                onClick={() => setShowFullscreen(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+              >
+                <Maximize2 className="h-3 w-3" /> Expand
+              </button>
             </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card overflow-auto">
+            <div className="flex items-center border-b border-border px-4 py-2 bg-muted/30 text-xs font-medium">
+              {viewMode === "side" ? (
+                <>
+                  <div className="w-12 shrink-0" />
+                  <div className="flex-1 pl-4">{leftLabel}</div>
+                  <div className="w-12 shrink-0" />
+                  <div className="flex-1 pl-4">{rightLabel}</div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 shrink-0" />
+                  <div className="flex-1">Diff</div>
+                </>
+              )}
+            </div>
+            {viewMode === "side" ? (
+              <SideBySideDiff diff={diff} options={options} />
+            ) : (
+              <UnifiedDiff diff={diff} options={options} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showFullscreen && diff && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col p-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-semibold">Diff Result</span>
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="p-2 rounded-lg hover:bg-accent transition-colors"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 rounded-lg border border-border bg-card overflow-auto">
             <div className="flex items-center border-b border-border px-4 py-2 bg-muted/30 text-xs font-medium">
               {viewMode === "side" ? (
                 <>

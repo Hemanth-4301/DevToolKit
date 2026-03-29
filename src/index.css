@@ -212,6 +212,19 @@
 @layer base {
   * { @apply border-border; }
   body { @apply font-sans antialiased bg-background text-foreground; }
+  button,
+  [role="button"],
+  a[href],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* ── SCROLLBAR ── */
