@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
+import ScrollToTop from "../components/ScrollToTop";
 
 // ─── MIME helpers ─────────────────────────────────────────────────────────────
 
@@ -155,18 +156,24 @@ export default function Base64Converter() {
   // ── Decode logic ──────────────────────────────────────────────────────────
 
   const runDecode = useCallback(
-    async (inputValue = decodeInput) => {
-      setDecodeError(null);
-      setDecodeResult(null);
-      setIsDecoding(true);
-      setDecodeProgress(10);
-      const trimmed = inputValue.trim();
+    async (inputValue) => {
+      // If called from a button onClick handler, the first arg is an Event,
+      // not a string — fall back to current state in that case.
+      if (typeof inputValue !== "string") {
+        inputValue = decodeInput;
+      }
+      const trimmed = (inputValue || "").trim();
       if (!trimmed) {
-        setDecodeError("Input is empty.");
+        setDecodeError("Please enter a Base64 string to decode.");
+        setDecodeResult(null);
         setIsDecoding(false);
         setDecodeProgress(0);
         return;
       }
+      setDecodeError(null);
+      setDecodeResult(null);
+      setIsDecoding(true);
+      setDecodeProgress(10);
 
       // Let the UI paint loader before heavy work for very large strings.
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -873,6 +880,7 @@ export default function Base64Converter() {
           </div>
         </div>
       )}
+      <ScrollToTop />
     </div>
   );
 }

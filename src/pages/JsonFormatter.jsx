@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   Copy,
   Download,
@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
+import ScrollToTop from "../components/ScrollToTop";
+import JsonTree from "../components/JsonTree";
 
 const HISTORY_KEY = "devtoolkit_json_history";
 const STATE_KEY = "devtoolkit_json_state";
@@ -163,7 +165,20 @@ export default function JsonFormatter() {
   const [history, setHistory] = useState(getHistory);
   const [copied, setCopied] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState("tree"); // "tree" | "raw"
   const fileInputRef = useRef(null);
+
+  const parsedOutput = useMemo(() => {
+    if (!output) return null;
+    try {
+      return JSON.parse(output);
+    } catch {
+      return null;
+    }
+  }, [output]);
+
+  const outputIsObjectLike =
+    parsedOutput !== null && typeof parsedOutput === "object";
 
   useEffect(() => {
     setState({ input, output });
@@ -440,6 +455,34 @@ export default function JsonFormatter() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              {outputIsObjectLike && (
+                <div className="flex items-center border border-border rounded-md overflow-hidden mr-1">
+                  <button
+                    onClick={() => setViewMode("tree")}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium transition-colors",
+                      viewMode === "tree"
+                        ? "bg-foreground text-background"
+                        : "hover:bg-accent text-muted-foreground",
+                    )}
+                    title="Tree view (expandable)"
+                  >
+                    Tree
+                  </button>
+                  <button
+                    onClick={() => setViewMode("raw")}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium transition-colors",
+                      viewMode === "raw"
+                        ? "bg-foreground text-background"
+                        : "hover:bg-accent text-muted-foreground",
+                    )}
+                    title="Raw text view"
+                  >
+                    Raw
+                  </button>
+                </div>
+              )}
               <button
                 onClick={() => setWrap((w) => !w)}
                 className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
@@ -484,18 +527,24 @@ export default function JsonFormatter() {
           </div>
           <div
             className={cn(
-              "w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
-              wrap
+              "w-full min-h-[420px] p-4 pl-6 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
+              viewMode === "raw" && wrap
                 ? "whitespace-pre-wrap break-all"
-                : "whitespace-pre overflow-x-auto",
+                : viewMode === "raw"
+                  ? "whitespace-pre overflow-x-auto"
+                  : "",
             )}
           >
-            {output ? (
-              <code>{highlightJson(output)}</code>
-            ) : (
+            {!output && (
               <span className="text-muted-foreground">
                 Formatted output will appear here...
               </span>
+            )}
+            {output && viewMode === "tree" && outputIsObjectLike && (
+              <JsonTree data={parsedOutput} />
+            )}
+            {output && (viewMode === "raw" || !outputIsObjectLike) && (
+              <code>{highlightJson(output)}</code>
             )}
           </div>
         </div>
@@ -573,15 +622,22 @@ export default function JsonFormatter() {
               <Maximize2 className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-sm whitespace-pre-wrap">
-            {output ? (
-              <code>{highlightJson(output)}</code>
-            ) : (
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 pl-6 font-mono text-sm">
+            {!output && (
               <span className="text-muted-foreground">No output yet.</span>
+            )}
+            {output && viewMode === "tree" && outputIsObjectLike && (
+              <JsonTree data={parsedOutput} />
+            )}
+            {output && (viewMode === "raw" || !outputIsObjectLike) && (
+              <code className="whitespace-pre-wrap">
+                {highlightJson(output)}
+              </code>
             )}
           </div>
         </div>
       )}
+      <ScrollToTop />
     </div>
   );
 }

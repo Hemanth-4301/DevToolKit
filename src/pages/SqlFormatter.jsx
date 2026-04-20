@@ -13,8 +13,10 @@ import {
   FileText,
   Maximize2,
 } from "lucide-react";
+import { format as sqlFormat } from "sql-formatter";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
+import ScrollToTop from "../components/ScrollToTop";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
 const STATE_KEY = "devtoolkit_sql_state";
@@ -162,118 +164,107 @@ function setState(state) {
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
 }
 
-function applyKeywordCase(word, keyCase) {
-  const upper = word.toUpperCase();
-  if (keyCase === "UPPERCASE") return upper;
-  if (keyCase === "lowercase") return word.toLowerCase();
-  if (keyCase === "Capitalize")
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  return word;
-}
+const DIALECT_MAP = {
+  "Standard SQL": "sql",
+  MySQL: "mysql",
+  PostgreSQL: "postgresql",
+  SQLite: "sqlite",
+  MSSQL: "tsql",
+  Oracle: "plsql",
+};
+
+const KEYWORD_CASE_MAP = {
+  UPPERCASE: "upper",
+  lowercase: "lower",
+  Capitalize: "preserve",
+};
 
 function formatSQL(
   sql,
-  { indentSize = 2, keyCase = "UPPERCASE", commaPos = "end" } = {},
+  {
+    indentSize = 2,
+    keyCase = "UPPERCASE",
+    commaPos = "end",
+    dialect = "Standard SQL",
+  } = {},
 ) {
-  const indent = indentSize === "tab" ? "\t" : " ".repeat(Number(indentSize));
+  const language = DIALECT_MAP[dialect] || "sql";
+  const tabWidth = indentSize === "tab" ? 4 : Number(indentSize);
+  const useTabs = indentSize === "tab";
 
-  const normalizeKeywords = (s) => {
-    let result = s;
-    const sorted = [...SQL_KEYWORDS].sort((a, b) => b.length - a.length);
-    for (const kw of sorted) {
-      const re = new RegExp(`\\b${kw}\\b`, "gi");
-      result = result.replace(re, applyKeywordCase(kw, keyCase));
+  try {
+    let result = sqlFormat(sql, {
+      language,
+      tabWidth,
+      useTabs,
+      keywordCase: KEYWORD_CASE_MAP[keyCase] || "upper",
+      dataTypeCase: KEYWORD_CASE_MAP[keyCase] || "upper",
+      functionCase: KEYWORD_CASE_MAP[keyCase] || "upper",
+      identifierCase: "preserve",
+      logicalOperatorNewline: "before",
+      expressionWidth: 50,
+      linesBetweenQueries: 2,
+    });
+
+    if (commaPos === "start") {
+      result = moveCommasToStart(result, useTabs ? "\t" : " ".repeat(tabWidth));
     }
+
+    if (keyCase === "Capitalize") {
+      result = capitalizeKeywords(result);
+    }
+
     return result;
-  };
-
-  let s = sql.replace(/\s+/g, " ").trim();
-  s = normalizeKeywords(s);
-
-  const toUpper = (k) => applyKeywordCase(k, keyCase);
-
-  const clauses = [
-    toUpper("SELECT"),
-    toUpper("FROM"),
-    toUpper("WHERE"),
-    toUpper("GROUP BY"),
-    toUpper("ORDER BY"),
-    toUpper("HAVING"),
-    toUpper("LIMIT"),
-    toUpper("LEFT JOIN"),
-    toUpper("RIGHT JOIN"),
-    toUpper("INNER JOIN"),
-    toUpper("OUTER JOIN"),
-    toUpper("FULL JOIN"),
-    toUpper("CROSS JOIN"),
-    toUpper("JOIN"),
-    toUpper("ON"),
-    toUpper("UNION ALL"),
-    toUpper("UNION"),
-    toUpper("INSERT INTO"),
-    toUpper("VALUES"),
-    toUpper("UPDATE"),
-    toUpper("SET"),
-    toUpper("DELETE FROM"),
-    toUpper("WITH"),
-    toUpper("CASE"),
-    toUpper("WHEN"),
-    toUpper("THEN"),
-    toUpper("ELSE"),
-    toUpper("END"),
-  ];
-
-  for (const clause of clauses) {
-    const re = new RegExp(
-      `(\\s+)(${clause.replace(/\s+/g, "\\s+")})\\s+`,
-      "gi",
-    );
-    s = s.replace(re, (_, space, c) => `\n${applyKeywordCase(c, keyCase)} `);
+  } catch (e) {
+    return `-- SQL formatting error: ${e.message}\n\n${sql}`;
   }
-
-  const lines = s
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const formatted = lines.map((line, i) => {
-    const upper = line.toUpperCase();
-    if (upper.startsWith(toUpper("SELECT").toUpperCase())) {
-      const rest = line.slice(line.indexOf(" ") + 1);
-      const cols = splitTopLevel(rest, ",");
-      if (cols.length > 1) {
-        const sep = commaPos === "end" ? ",\n" + indent : "\n" + indent + ", ";
-        return `${applyKeywordCase("SELECT", keyCase)} ${cols[0].trim()}${sep}${cols
-          .slice(1)
-          .map((c) => c.trim())
-          .join(sep)}`;
-      }
-    }
-    return line;
-  });
-
-  return formatted
-    .join("\n")
-    .replace(/^\n+/, "")
-    .replace(/\n{3,}/g, "\n\n");
 }
 
-function splitTopLevel(str, sep) {
-  const parts = [];
-  let depth = 0;
-  let current = "";
-  for (const ch of str) {
-    if (ch === "(" || ch === "[") depth++;
-    else if (ch === ")" || ch === "]") depth--;
-    if (ch === sep && depth === 0) {
-      parts.push(current);
-      current = "";
-    } else {
-      current += ch;
-    }
+function moveCommasToStart(sql, indent) {
+  return sql
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trimStart();
+      const leading = line.slice(0, line.length - trimmed.length);
+      if (trimmed.endsWith(",")) {
+        return line;
+      }
+      return line;
+    })
+    .map((line, i, arr) => {
+      if (i === 0) return line;
+      const prev = arr[i - 1];
+      if (prev && prev.trimEnd().endsWith(",")) {
+        const prevTrimmed = prev.trimEnd();
+        const prevLeading = prev.slice(
+          0,
+          prev.length - prev.trimStart().length,
+        );
+        const currentLeading = line.slice(0, line.length - line.trimStart().length);
+        arr[i - 1] = prevLeading + prevTrimmed.slice(0, -1);
+        return currentLeading.slice(0, Math.max(0, currentLeading.length - 2)) + ", " + line.trimStart();
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+function capitalizeKeywords(sql) {
+  const allKeywords = SQL_KEYWORDS.slice().sort((a, b) => b.length - a.length);
+  let out = sql;
+  for (const kw of allKeywords) {
+    const re = new RegExp(`\\b${kw.replace(/\s+/g, "\\s+")}\\b`, "gi");
+    out = out.replace(re, (match) => {
+      return match
+        .split(/(\s+)/)
+        .map((part) => {
+          if (/^\s+$/.test(part)) return part;
+          return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+        })
+        .join("");
+    });
   }
-  if (current) parts.push(current);
-  return parts;
+  return out;
 }
 
 function highlightSQL(sql) {
@@ -369,7 +360,12 @@ export default function SqlFormatter() {
       setOutput("");
       return;
     }
-    const formatted = formatSQL(text, { indentSize, keyCase, commaPos });
+    const formatted = formatSQL(text, {
+      indentSize,
+      keyCase,
+      commaPos,
+      dialect,
+    });
     setOutput(formatted);
     saveHistory(text, formatted);
     setHistory(getHistory());
@@ -761,6 +757,7 @@ export default function SqlFormatter() {
           </div>
         </div>
       )}
+      <ScrollToTop />
     </div>
   );
 }
