@@ -50,7 +50,7 @@ export default function App() {
         devMode={devMode}
         onDevModeToggle={() => setDevMode((d) => !d)}
       />
-      <main>
+      <main className="overflow-x-hidden">
         <section className={activeTab === "home" ? "block" : "hidden"}>
           <HomePage onTabChange={setActiveTab} devMode={devMode} />
         </section>

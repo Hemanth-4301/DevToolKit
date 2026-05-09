@@ -212,6 +212,17 @@
 @layer base {
   * { @apply border-border; }
   body { @apply font-sans antialiased bg-background text-foreground; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  #root { max-width: 100%; overflow-x: hidden; }
+  textarea,
+  input,
+  select,
+  button {
+    font: inherit;
+  }
+  textarea {
+    line-height: 1.6;
+  }
   button,
   [role="button"],
   a[href],
@@ -224,6 +235,97 @@
   select:disabled,
   textarea:disabled {
     cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .tool-page {
+    @apply max-w-screen-xl mx-auto px-4 sm:px-5 lg:px-6 py-5 sm:py-6 lg:py-8;
+  }
+
+  .tool-page-header {
+    @apply mb-5 sm:mb-6 flex flex-col gap-2;
+  }
+
+  .tool-page-title {
+    @apply text-xl sm:text-2xl font-bold tracking-tight leading-tight;
+  }
+
+  .tool-page-subtitle {
+    @apply max-w-3xl text-sm sm:text-base text-muted-foreground leading-6;
+  }
+
+  .tool-toolbar {
+    @apply mb-5 flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center;
+  }
+
+  .tool-toolbar-main {
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
+  }
+
+  .tool-toolbar-action {
+    @apply w-full sm:w-auto sm:ml-auto;
+  }
+
+  .tool-grid {
+    @apply grid grid-cols-1 gap-5 lg:grid-cols-2;
+  }
+
+  .tool-panel {
+    @apply flex min-w-0 flex-col gap-2;
+  }
+
+  .tool-panel-header {
+    @apply flex flex-col gap-2 sm:min-h-8 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .tool-panel-title {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .tool-panel-actions {
+    @apply flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end;
+  }
+
+  .tool-control-row {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .tool-editor {
+    @apply w-full min-h-[320px] sm:min-h-[420px] rounded-lg border bg-card p-3 sm:p-4 font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1;
+  }
+
+  .tool-output {
+    @apply w-full min-h-[320px] sm:min-h-[420px] rounded-lg border border-border bg-card p-3 sm:p-4 font-mono text-sm overflow-auto;
+  }
+
+  .tool-icon-button,
+  .tool-text-button {
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors;
+  }
+
+  .tool-muted-button {
+    @apply text-muted-foreground hover:bg-accent hover:text-foreground;
+  }
+
+  .tool-card {
+    @apply rounded-lg border border-border bg-card p-4 sm:p-5;
+  }
+}
+
+@media (max-width: 640px) {
+  .tool-panel-actions > button,
+  .tool-panel-actions > div {
+    flex: 1 1 auto;
+  }
+
+  .tool-panel-actions button {
+    min-width: 2.25rem;
+  }
+
+  .tool-toolbar select,
+  .tool-toolbar input {
+    width: 100%;
   }
 }
 

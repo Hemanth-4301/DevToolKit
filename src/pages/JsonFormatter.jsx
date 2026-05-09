@@ -294,17 +294,17 @@ export default function JsonFormatter() {
   const inputInvalid = !!error && input.trim();
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold mb-1">JSON Formatter</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="tool-page">
+      <div className="tool-page-header">
+        <h1 className="tool-page-title">JSON Formatter</h1>
+        <p className="tool-page-subtitle">
           Validate, format, minify, sort and repair JSON with syntax
           highlighting.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="tool-toolbar">
+        <div className="tool-toolbar-main">
           <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
             {[2, 4, "tab"].map((v) => (
               <button
@@ -356,16 +356,16 @@ export default function JsonFormatter() {
 
         <button
           onClick={handleFormat}
-          className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+          className="tool-toolbar-action px-4 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
         >
           Format <span className="opacity-60 ml-1">Ctrl+Enter</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <div className="tool-grid">
+        <div className="tool-panel">
+          <div className="tool-panel-header">
+            <div className="tool-panel-title">
               <span className="text-sm font-medium">Input JSON</span>
               {input && (
                 <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -373,7 +373,7 @@ export default function JsonFormatter() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="tool-panel-actions">
               <button
                 onClick={handlePaste}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
@@ -428,7 +428,7 @@ export default function JsonFormatter() {
             }}
             placeholder='Paste JSON here or click "Sample" to load an example...'
             className={cn(
-              "w-full min-h-[420px] p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
+              "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
               inputInvalid
                 ? "border-red-500/50 focus:ring-red-500/30"
                 : inputValid
@@ -444,9 +444,9 @@ export default function JsonFormatter() {
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <div className="tool-panel">
+          <div className="tool-panel-header">
+            <div className="tool-panel-title">
               <span className="text-sm font-medium">Formatted Output</span>
               {output && (
                 <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -454,7 +454,7 @@ export default function JsonFormatter() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="tool-panel-actions">
               {outputIsObjectLike && (
                 <div className="flex items-center border border-border rounded-md overflow-hidden mr-1">
                   <button
@@ -527,7 +527,7 @@ export default function JsonFormatter() {
           </div>
           <div
             className={cn(
-              "w-full min-h-[420px] p-4 pl-6 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
+              "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 sm:pl-6 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
               viewMode === "raw" && wrap
                 ? "whitespace-pre-wrap break-all"
                 : viewMode === "raw"

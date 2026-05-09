@@ -405,13 +405,13 @@ export default function StringifyConverter() {
 
   if (liveMode) {
     return (
-      <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="tool-page">
+        <div className="tool-page-header sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold mb-1">
+            <h1 className="tool-page-title">
               Stringify ↔ JSON — Live Sync
             </h1>
-            <p className="text-base text-muted-foreground">
+            <p className="tool-page-subtitle">
               Edit either panel and the other updates automatically (300ms
               debounce).
             </p>
@@ -424,9 +424,9 @@ export default function StringifyConverter() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="tool-grid">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+            <div className="tool-panel-header">
               <span className="text-sm font-semibold">
                 Normal JSON (pretty)
               </span>
@@ -448,7 +448,7 @@ export default function StringifyConverter() {
                 );
               }}
               className={cn(
-                "w-full min-h-[440px] p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                "w-full min-h-[320px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveJsonError
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : "border-green-500/40 focus:ring-green-500/30",
@@ -456,7 +456,7 @@ export default function StringifyConverter() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+            <div className="tool-panel-header">
               <span className="text-sm font-semibold">
                 Stringified (escaped string)
               </span>
@@ -478,7 +478,7 @@ export default function StringifyConverter() {
                 );
               }}
               className={cn(
-                "w-full min-h-[440px] p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                "w-full min-h-[320px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveStringError
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : liveStringified
@@ -502,16 +502,16 @@ export default function StringifyConverter() {
   }
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div className="tool-page">
+      <div className="tool-page-header sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold mb-1">Stringify ↔ JSON Converter</h1>
-          <p className="text-base text-muted-foreground">
+          <h1 className="tool-page-title">Stringify ↔ JSON Converter</h1>
+          <p className="tool-page-subtitle">
             Convert between JSON objects and escaped string literals in both
             directions.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
             onClick={() => {
               const ex = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
@@ -537,8 +537,8 @@ export default function StringifyConverter() {
 
       <div className="space-y-6">
         {/* ── SECTION A: JSON → Stringified ── */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-3">
+        <div className="tool-card space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-base font-semibold">JSON → Stringified</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               Object → Escaped String
@@ -566,13 +566,13 @@ export default function StringifyConverter() {
             </label>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="tool-grid">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
                   Input — Normal JSON
                 </span>
-                <div className="flex gap-1">
+                <div className="tool-panel-actions">
                   <button
                     onClick={async () => {
                       const pasted = await navigator.clipboard.readText();
@@ -634,7 +634,7 @@ export default function StringifyConverter() {
                 }}
                 placeholder={'{\n  "name": "Alice",\n  "age": 30\n}'}
                 className={cn(
-                  "w-full min-h-[220px] p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                  "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                   jsonifyError
                     ? "border-red-500/50 focus:ring-red-500/30"
                     : "border-border focus:ring-ring/30",
@@ -649,11 +649,11 @@ export default function StringifyConverter() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
                   Output — Stringified
                 </span>
-                <div className="flex gap-1">
+                <div className="tool-panel-actions">
                   {stringifiedOutput && (
                     <button
                       onClick={() => setExpandedOutput("stringified")}
@@ -674,7 +674,7 @@ export default function StringifyConverter() {
               </div>
               <div
                 className={cn(
-                  "w-full min-h-[220px] p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed overflow-auto whitespace-pre-wrap break-all",
+                  "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed overflow-auto whitespace-pre-wrap break-all",
                   stringifiedOutput ? "border-blue-500/30" : "border-border",
                 )}
               >
@@ -721,8 +721,8 @@ export default function StringifyConverter() {
         </div>
 
         {/* ── SECTION B: Stringified → JSON ── */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-3">
+        <div className="tool-card space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-base font-semibold">Stringified → JSON</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               Escaped String → Object
@@ -735,13 +735,13 @@ export default function StringifyConverter() {
             object.
           </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="tool-grid">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
                   Input — Stringified
                 </span>
-                <div className="flex gap-1">
+                <div className="tool-panel-actions">
                   <button
                     onClick={async () => {
                       const pasted = await navigator.clipboard.readText();
@@ -803,7 +803,7 @@ export default function StringifyConverter() {
                 }}
                 placeholder={'"{\\"name\\":\\"Alice\\",\\"age\\":30}"'}
                 className={cn(
-                  "w-full min-h-[220px] p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                  "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                   parseError
                     ? "border-red-500/50 focus:ring-red-500/30"
                     : "border-border focus:ring-ring/30",
@@ -818,11 +818,11 @@ export default function StringifyConverter() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
                   Output — Parsed JSON
                 </span>
-                <div className="flex gap-1">
+                <div className="tool-panel-actions">
                   {jsonOutput && (
                     <button
                       onClick={() => setExpandedOutput("parsed")}
@@ -843,7 +843,7 @@ export default function StringifyConverter() {
               </div>
               <div
                 className={cn(
-                  "w-full min-h-[220px] p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed overflow-auto whitespace-pre-wrap",
+                  "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed overflow-auto whitespace-pre-wrap",
                   jsonOutput ? "border-green-500/30" : "border-border",
                 )}
               >

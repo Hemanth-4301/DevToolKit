@@ -545,18 +545,18 @@ export default function Base64Converter() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6">
+    <div className="tool-page">
       {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold mb-1">Base64 Converter</h1>
-        <p className="text-sm text-muted-foreground">
+      <div className="tool-page-header">
+        <h1 className="tool-page-title">Base64 Converter</h1>
+        <p className="tool-page-subtitle">
           Encode any file (image, PDF, Word, Excel, etc.) to Base64, or decode a
           Base64 string back to its original file with live preview.
         </p>
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg border border-border bg-card">
+      <div className="tool-toolbar">
         {/* Mode switcher */}
         <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
           <button
@@ -593,7 +593,7 @@ export default function Base64Converter() {
               value={manualMime}
               onChange={(e) => setManualMime(e.target.value)}
               placeholder="e.g. image/png  (auto-detected if blank)"
-              className="px-2 py-1 text-xs rounded-md border border-border bg-background font-mono w-60 focus:outline-none focus:ring-1 focus:ring-ring/30"
+              className="px-2 py-1 text-xs rounded-md border border-border bg-background font-mono w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-ring/30"
             />
           </>
         )}
@@ -618,7 +618,7 @@ export default function Base64Converter() {
           <button
             onClick={runDecode}
             disabled={isDecoding}
-            className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+            className="tool-toolbar-action px-4 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
           >
             <span className="inline-flex items-center gap-1.5">
               {isDecoding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -632,11 +632,11 @@ export default function Base64Converter() {
 
       {/* ── DECODE ─────────────────────────────────────────────────────────── */}
       {mode === "decode" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="tool-grid">
           {/* Input */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="tool-panel">
+            <div className="tool-panel-header">
+              <div className="tool-panel-title">
                 <span className="text-sm font-medium">Base64 Input</span>
                 {decodeInput && (
                   <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -644,7 +644,7 @@ export default function Base64Converter() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="tool-panel-actions">
                 <button
                   onClick={async () => {
                     const text = await navigator.clipboard.readText();
@@ -711,7 +711,7 @@ export default function Base64Converter() {
                 'Paste Base64 string here…\n(with or without "data:mime/type;base64," prefix)\n\nCtrl+Enter to decode'
               }
               className={cn(
-                "w-full min-h-[420px] p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
+                "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
                 decodeInputInvalid
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : decodeInputValid
@@ -737,9 +737,9 @@ export default function Base64Converter() {
           </div>
 
           {/* Preview */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="tool-panel">
+            <div className="tool-panel-header">
+              <div className="tool-panel-title">
                 <span className="text-sm font-medium">
                   Preview &amp; Download
                 </span>
@@ -750,7 +750,7 @@ export default function Base64Converter() {
                 )}
               </div>
               {decodeResult && (
-                <div className="flex items-center gap-1">
+                <div className="tool-panel-actions">
                   <span className="text-xs text-muted-foreground font-mono">
                     {decodeResult.mimeType}
                   </span>
@@ -770,7 +770,7 @@ export default function Base64Converter() {
               )}
             </div>
 
-            <div className="w-full min-h-[420px] p-4 rounded-lg border border-border bg-card flex items-center justify-center overflow-hidden">
+            <div className="w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card flex items-center justify-center overflow-hidden">
               {isDecoding && (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -842,10 +842,10 @@ export default function Base64Converter() {
 
       {/* ── ENCODE ─────────────────────────────────────────────────────────── */}
       {mode === "encode" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="tool-grid items-start">
           {/* Drop zone */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+          <div className="tool-panel">
+            <div className="tool-panel-header">
               <span className="text-sm font-medium">Upload File</span>
               {encodeOutput && (
                 <button
@@ -861,7 +861,7 @@ export default function Base64Converter() {
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="w-full min-h-[420px] p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors"
+              className="w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors"
             >
               {isEncoding ? (
                 <div className="w-full max-w-xs text-center">
@@ -921,9 +921,9 @@ export default function Base64Converter() {
           </div>
 
           {/* Output */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="tool-panel">
+            <div className="tool-panel-header">
+              <div className="tool-panel-title">
                 <span className="text-sm font-medium">Base64 Output</span>
                 {displayOutput && (
                   <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -931,7 +931,7 @@ export default function Base64Converter() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="tool-panel-actions">
                 {isEncodeOutputLarge && (
                   <button
                     onClick={() => setShowFullEncodeOutput((s) => !s)}
@@ -986,7 +986,7 @@ export default function Base64Converter() {
                 await handlePreviewHotkeys(e, displayOutput);
               }}
               className={cn(
-                "w-full min-h-[420px] p-4 rounded-lg border border-border bg-card font-mono text-xs overflow-auto",
+                "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-xs overflow-auto",
                 encodeWrap
                   ? "whitespace-pre-wrap break-all"
                   : "whitespace-pre overflow-x-auto",
@@ -1034,7 +1034,7 @@ export default function Base64Converter() {
               <iframe
                 src={decodeResult.objectUrl}
                 title="PDF Preview"
-                className="w-full h-full min-h-[420px] border-0 rounded"
+                className="w-full h-full min-h-[320px] sm:min-h-[420px] border-0 rounded"
               />
             )}
             {isXlsx && <XlsxPreview blob={decodeResult.blob} fullscreen />}

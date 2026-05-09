@@ -23,7 +23,7 @@ export default function Navbar({
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-5 h-14 flex items-center justify-between gap-3">
         <button
           onClick={() => onTabChange("home")}
           className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
@@ -53,7 +53,7 @@ export default function Navbar({
           </div>
         </button>
 
-        <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
+        <div className="hidden lg:flex items-center gap-1 flex-1 justify-center overflow-x-auto">
           {TABS.filter((t) => t.id !== "home").map((tab) => (
             <button
               key={tab.id}
@@ -110,7 +110,7 @@ export default function Navbar({
             )}
           </button>
           <button
-            className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
+            className="lg:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? (
@@ -123,7 +123,7 @@ export default function Navbar({
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
+        <div className="lg:hidden border-t border-border bg-background/95 backdrop-blur-md">
           {TABS.map((tab) => (
             <button
               key={tab.id}

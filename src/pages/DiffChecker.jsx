@@ -691,16 +691,16 @@ export default function DiffChecker() {
   const optionToggle = (key) => setOptions((o) => ({ ...o, [key]: !o[key] }));
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6">
-      <div className="flex flex-wrap items-center gap-2 mb-6">
+    <div className="tool-page">
+      <div className="tool-toolbar">
         <div>
-          <h1 className="text-xl font-bold mb-0.5">Diff Checker</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="tool-page-title">Diff Checker</h1>
+          <p className="tool-page-subtitle">
             Compare any two texts side-by-side or unified.
           </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2 w-full xl:w-auto">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="tool-toolbar-main sm:justify-end">
+          <div className="tool-control-row">
             <select
               value={lang}
               onChange={(e) => {
@@ -781,7 +781,7 @@ export default function DiffChecker() {
 
           <button
             onClick={handleCompare}
-            className="ml-auto w-full sm:w-auto sm:ml-auto px-4 py-1.5 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+            className="tool-toolbar-action px-4 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
           >
             Compare <span className="opacity-60 ml-1">Ctrl+Enter</span>
           </button>
@@ -816,7 +816,7 @@ export default function DiffChecker() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div className="tool-grid mb-5">
         <PanelInput
           label={leftLabel}
           onLabelChange={setLeftLabel}
@@ -872,7 +872,7 @@ export default function DiffChecker() {
             <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/20">
               {similarity}% similar
             </span>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap gap-2">
               <button
                 onClick={async () => {
                   const text = diff
@@ -983,9 +983,9 @@ function PanelInput({
   const [editVal, setEditVal] = useState(label);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="tool-panel">
+      <div className="tool-panel-header">
+        <div className="tool-panel-title">
           {editing ? (
             <input
               autoFocus
@@ -1018,7 +1018,7 @@ function PanelInput({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="tool-panel-actions">
           <button
             onClick={onPaste}
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
@@ -1057,7 +1057,7 @@ function PanelInput({
         value={text}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Type or paste content here..."
-        className="w-full min-h-[280px] p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
+        className="w-full min-h-[240px] sm:min-h-[280px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
       />
     </div>
   );
