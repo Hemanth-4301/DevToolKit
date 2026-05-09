@@ -176,7 +176,7 @@ const DIALECT_MAP = {
 const KEYWORD_CASE_MAP = {
   UPPERCASE: "upper",
   lowercase: "lower",
-  Capitalize: "preserve",
+  Capitalize: "upper",
 };
 
 function formatSQL(
@@ -191,23 +191,26 @@ function formatSQL(
   const language = DIALECT_MAP[dialect] || "sql";
   const tabWidth = indentSize === "tab" ? 4 : Number(indentSize);
   const useTabs = indentSize === "tab";
+  const kc = KEYWORD_CASE_MAP[keyCase] || "upper";
 
   try {
     let result = sqlFormat(sql, {
       language,
       tabWidth,
       useTabs,
-      keywordCase: KEYWORD_CASE_MAP[keyCase] || "upper",
-      dataTypeCase: KEYWORD_CASE_MAP[keyCase] || "upper",
-      functionCase: KEYWORD_CASE_MAP[keyCase] || "upper",
+      keywordCase: kc,
+      dataTypeCase: kc,
+      functionCase: kc,
       identifierCase: "preserve",
       logicalOperatorNewline: "before",
-      expressionWidth: 50,
+      expressionWidth: 80,
       linesBetweenQueries: 2,
+      denseOperators: false,
+      newlineBeforeSemicolon: false,
     });
 
     if (commaPos === "start") {
-      result = moveCommasToStart(result, useTabs ? "\t" : " ".repeat(tabWidth));
+      result = moveCommasToStart(result);
     }
 
     if (keyCase === "Capitalize") {
@@ -220,51 +223,50 @@ function formatSQL(
   }
 }
 
-function moveCommasToStart(sql, indent) {
-  return sql
-    .split("\n")
-    .map((line) => {
-      const trimmed = line.trimStart();
-      const leading = line.slice(0, line.length - trimmed.length);
-      if (trimmed.endsWith(",")) {
-        return line;
-      }
-      return line;
-    })
-    .map((line, i, arr) => {
-      if (i === 0) return line;
-      const prev = arr[i - 1];
-      if (prev && prev.trimEnd().endsWith(",")) {
-        const prevTrimmed = prev.trimEnd();
-        const prevLeading = prev.slice(
-          0,
-          prev.length - prev.trimStart().length,
-        );
-        const currentLeading = line.slice(0, line.length - line.trimStart().length);
-        arr[i - 1] = prevLeading + prevTrimmed.slice(0, -1);
-        return currentLeading.slice(0, Math.max(0, currentLeading.length - 2)) + ", " + line.trimStart();
-      }
-      return line;
-    })
-    .join("\n");
+// Walk tokens preserving strings/comments/identifiers so transforms only touch SQL keywords.
+const TOKEN_RE =
+  /(--[^\n]*)|(\/\*[\s\S]*?\*\/)|('(?:''|[^'])*')|("(?:""|[^"])*")|(`(?:[^`])*`)|(\[[^\]]*\])|([A-Za-z_][A-Za-z0-9_]*)|([\s\S])/g;
+
+function transformOutsideLiterals(sql, transformWord) {
+  return sql.replace(TOKEN_RE, (m, c1, c2, s1, s2, s3, s4, word) => {
+    if (c1 || c2 || s1 || s2 || s3 || s4) return m;
+    if (word) return transformWord(word);
+    return m;
+  });
 }
 
-function capitalizeKeywords(sql) {
-  const allKeywords = SQL_KEYWORDS.slice().sort((a, b) => b.length - a.length);
-  let out = sql;
-  for (const kw of allKeywords) {
-    const re = new RegExp(`\\b${kw.replace(/\s+/g, "\\s+")}\\b`, "gi");
-    out = out.replace(re, (match) => {
-      return match
-        .split(/(\s+)/)
-        .map((part) => {
-          if (/^\s+$/.test(part)) return part;
-          return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-        })
-        .join("");
-    });
+function moveCommasToStart(sql) {
+  const lines = sql.split("\n");
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prev = out[out.length - 1];
+    if (
+      prev !== undefined &&
+      /,\s*$/.test(prev) &&
+      line.trim().length > 0 &&
+      !/^\s*--/.test(line)
+    ) {
+      out[out.length - 1] = prev.replace(/,\s*$/, "");
+      const indentMatch = line.match(/^[ \t]*/)[0];
+      const trimmedIndent = indentMatch.replace(/[ \t]{0,2}$/, "");
+      out.push(trimmedIndent + ", " + line.trim());
+    } else {
+      out.push(line);
+    }
   }
-  return out;
+  return out.join("\n");
+}
+
+const KEYWORD_SET = new Set(SQL_KEYWORDS.map((k) => k.toUpperCase()));
+
+function capitalizeKeywords(sql) {
+  return transformOutsideLiterals(sql, (word) => {
+    if (KEYWORD_SET.has(word.toUpperCase())) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
 }
 
 function highlightSQL(sql) {
@@ -378,7 +380,35 @@ export default function SqlFormatter() {
 
   const handleMinify = () => {
     if (!input.trim()) return;
-    const minified = input.replace(/\s+/g, " ").trim();
+    const parts = [];
+    const re =
+      /(--[^\n]*)|(\/\*[\s\S]*?\*\/)|('(?:''|[^'])*')|("(?:""|[^"])*")|(`(?:[^`])*`)|([\s\S])/g;
+    let buf = "";
+    let m;
+    while ((m = re.exec(input)) !== null) {
+      if (m[1] || m[2]) {
+        if (buf) {
+          parts.push(buf.replace(/\s+/g, " "));
+          buf = "";
+        }
+        continue;
+      }
+      if (m[3] || m[4] || m[5]) {
+        if (buf) {
+          parts.push(buf.replace(/\s+/g, " "));
+          buf = "";
+        }
+        parts.push(m[0]);
+      } else {
+        buf += m[0];
+      }
+    }
+    if (buf) parts.push(buf.replace(/\s+/g, " "));
+    const minified = parts
+      .join("")
+      .replace(/\s*([(),;])\s*/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
     setOutput(minified);
   };
 

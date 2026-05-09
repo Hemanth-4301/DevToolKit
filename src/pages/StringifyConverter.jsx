@@ -121,22 +121,108 @@ function highlightJson(jsonStr) {
 }
 
 function doStringify(jsonText, pretty) {
-  const parsed = JSON.parse(jsonText);
-  const compact = JSON.stringify(parsed);
-  if (pretty) {
-    return JSON.stringify(compact, null, 2);
+  try {
+    const parsed = JSON.parse(jsonText);
+    const compactStr = JSON.stringify(parsed);
+    const stringified = JSON.stringify(compactStr);
+    return stringified;
+  } catch (e) {
+    throw new Error("Invalid JSON: " + e.message);
   }
-  return JSON.stringify(compact);
+}
+
+function unescapeJsString(s) {
+  return s.replace(
+    /\\(u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|[\\'"`bfnrtv0/])/g,
+    (_, esc) => {
+      if (esc.startsWith("u{")) {
+        return String.fromCodePoint(parseInt(esc.slice(2, -1), 16));
+      }
+      if (esc.startsWith("u")) {
+        return String.fromCharCode(parseInt(esc.slice(1), 16));
+      }
+      if (esc.startsWith("x")) {
+        return String.fromCharCode(parseInt(esc.slice(1), 16));
+      }
+      const map = {
+        "\\": "\\",
+        "'": "'",
+        '"': '"',
+        "`": "`",
+        b: "\b",
+        f: "\f",
+        n: "\n",
+        r: "\r",
+        t: "\t",
+        v: "\v",
+        0: "\0",
+        "/": "/",
+      };
+      return map[esc] ?? esc;
+    },
+  );
+}
+
+function stripOuterQuotes(s) {
+  if (s.length < 2) return s;
+  const first = s[0];
+  const last = s[s.length - 1];
+  if ((first === '"' || first === "'" || first === "`") && first === last) {
+    return s.slice(1, -1);
+  }
+  return s;
 }
 
 function doParse(stringText) {
   const s = stringText.trim();
-  const firstParse = JSON.parse(s);
-  if (typeof firstParse === "string") {
-    const obj = JSON.parse(firstParse);
-    return JSON.stringify(obj, null, 2);
+  if (!s) throw new Error("Empty input");
+
+  // 1) Try direct JSON parse first - might be a stringified JSON
+  try {
+    const parsed = JSON.parse(s);
+    if (typeof parsed === "string") {
+      // It was a JSON-stringified string, try to parse the inner value
+      try {
+        const innerParsed = JSON.parse(parsed);
+        return JSON.stringify(innerParsed, null, 2);
+      } catch {
+        // Inner wasn't JSON, so the string value is the result
+        return JSON.stringify(parsed, null, 2);
+      }
+    }
+    // It was already a JSON object/array
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    // fall through
   }
-  return JSON.stringify(firstParse, null, 2);
+
+  // 2) Try stripping outer quotes and unescaping JS sequences
+  const inner = stripOuterQuotes(s);
+  if (inner !== s) {
+    try {
+      const unescaped = unescapeJsString(inner);
+      const parsed = JSON.parse(unescaped);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      // fall through
+    }
+  }
+
+  // 3) Try as bare escaped string
+  try {
+    const unescaped = unescapeJsString(s);
+    const parsed = JSON.parse(unescaped);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    // fall through
+  }
+
+  // 4) Last resort: treat as plain string and return it
+  try {
+    return JSON.stringify(s, null, 2);
+  } catch (e) {
+    throw new Error("Could not parse input: " + e.message);
+  }
 }
 
 function CopyBtn({ text }) {

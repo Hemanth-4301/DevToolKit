@@ -541,7 +541,7 @@ export default function JsonFormatter() {
               </span>
             )}
             {output && viewMode === "tree" && outputIsObjectLike && (
-              <JsonTree data={parsedOutput} />
+              <JsonTree data={parsedOutput} defaultCollapsed={1} />
             )}
             {output && (viewMode === "raw" || !outputIsObjectLike) && (
               <code>{highlightJson(output)}</code>
@@ -627,7 +627,7 @@ export default function JsonFormatter() {
               <span className="text-muted-foreground">No output yet.</span>
             )}
             {output && viewMode === "tree" && outputIsObjectLike && (
-              <JsonTree data={parsedOutput} />
+              <JsonTree data={parsedOutput} defaultCollapsed={1} />
             )}
             {output && (viewMode === "raw" || !outputIsObjectLike) && (
               <code className="whitespace-pre-wrap">

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import * as XLSX from "xlsx";
 import {
   Copy,
   Download,
@@ -49,6 +50,63 @@ const MIME_TO_EXT = {
   "video/webm": "webm",
 };
 
+function decodeBase64Head(b64, byteCount = 4096) {
+  const raw = b64.includes(",") ? b64.split(",")[1] : b64;
+  const cleaned = raw.replace(/\s+/g, "");
+  const charsNeeded = Math.ceil((byteCount * 4) / 3);
+  let head = cleaned.slice(0, charsNeeded);
+  while (head.length % 4 !== 0) head += "=";
+  try {
+    const bin = atob(head);
+    const len = Math.min(bin.length, byteCount);
+    const out = new Uint8Array(len);
+    for (let i = 0; i < len; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return new Uint8Array(0);
+  }
+}
+
+function detectZipFlavor(bytes) {
+  if (
+    bytes.length < 4 ||
+    bytes[0] !== 0x50 ||
+    bytes[1] !== 0x4b ||
+    bytes[2] !== 0x03 ||
+    bytes[3] !== 0x04
+  ) {
+    return "application/zip";
+  }
+  let head = "";
+  for (let i = 0; i < bytes.length; i++) head += String.fromCharCode(bytes[i]);
+  if (head.includes("[Content_Types].xml")) {
+    if (
+      head.includes("xl/") ||
+      head.includes("xl\\") ||
+      head.includes("worksheets")
+    )
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (head.includes("word/") || head.includes("word\\"))
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (head.includes("ppt/") || head.includes("ppt\\"))
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  // Fallback detection for Office files even without Content_Types
+  if (
+    head.includes("xl") ||
+    head.includes("worksheets") ||
+    head.includes("sharedStrings")
+  )
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (head.includes("word") || head.includes("document.xml"))
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (head.includes("ppt") || head.includes("slide"))
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (head.includes("mimetypeapplication/epub+zip"))
+    return "application/epub+zip";
+  return "application/zip";
+}
+
 function detectMimeFromBase64(b64) {
   if (b64.startsWith("data:")) {
     const m = b64.match(/^data:([^;]+);base64,/);
@@ -61,7 +119,9 @@ function detectMimeFromBase64(b64) {
   if (h.startsWith("R0lGOD")) return "image/gif";
   if (h.startsWith("UklGR")) return "image/webp";
   if (h.startsWith("JVBER")) return "application/pdf";
-  if (h.startsWith("UEsDB")) return "application/zip"; // also docx/xlsx/pptx
+  if (h.startsWith("UEsDB") || h.startsWith("UEsFB") || h.startsWith("UEsHB")) {
+    return detectZipFlavor(decodeBase64Head(b64, 4096));
+  }
   if (h.startsWith("eyJ") || h.startsWith("77u/")) return "application/json";
   if (h.startsWith("PD94bW") || h.startsWith("PCFET")) return "text/xml";
   return "application/octet-stream";
@@ -120,7 +180,111 @@ function TextPreview({ blob }) {
     </pre>
   );
 }
+function XlsxPreview({ blob, fullscreen = false }) {
+  const [sheetName, setSheetName] = useState("");
+  const [headers, setHeaders] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState("");
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const buffer = await blob.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0] || "";
+        const worksheet = workbook.Sheets[firstSheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          raw: true,
+        });
+        const safeData = Array.isArray(data) ? data : [];
+        const head = safeData[0] || [];
+        const body = safeData.slice(1, 101);
+
+        if (!cancelled) {
+          setSheetName(firstSheetName);
+          setHeaders(head);
+          setRows(body);
+          setError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError("Could not render this spreadsheet preview.");
+        }
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [blob]);
+
+  if (error) {
+    return (
+      <div className="w-full max-h-[380px] overflow-auto p-4 flex flex-col items-center justify-center text-center">
+        <FileText className="h-12 w-12 text-blue-500/30 mb-3" />
+        <p className="text-sm font-medium text-foreground mb-2">
+          Excel Spreadsheet
+        </p>
+        <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "w-full rounded-lg border border-border bg-card",
+        fullscreen ? "h-full overflow-auto" : "max-h-[380px] overflow-auto",
+      )}
+    >
+      <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+        {sheetName ? `Sheet: ${sheetName}` : "Sheet preview"}
+      </div>
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-muted/50">
+          <tr>
+            {(headers.length ? headers : ["A", "B", "C", "D", "E"])
+              .slice(0, 12)
+              .map((h, i) => (
+                <th
+                  key={i}
+                  className="text-left font-semibold px-2 py-1 border-b border-border"
+                >
+                  {String(h ?? "").trim() || `Col ${i + 1}`}
+                </th>
+              ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td className="px-2 py-2 text-muted-foreground" colSpan={12}>
+                No previewable rows found.
+              </td>
+            </tr>
+          )}
+          {rows.map((row, rIdx) => (
+            <tr key={rIdx} className="odd:bg-muted/20">
+              {Array.from({ length: Math.max(headers.length, row.length, 1) })
+                .slice(0, 12)
+                .map((_, cIdx) => (
+                  <td
+                    key={cIdx}
+                    className="px-2 py-1 border-b border-border/50"
+                  >
+                    {String(row[cIdx] ?? "")}
+                  </td>
+                ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Base64Converter() {
@@ -358,6 +522,9 @@ export default function Base64Converter() {
   // ── Preview type helpers
   const isImage = decodeResult?.mimeType?.startsWith("image/");
   const isPdf = decodeResult?.mimeType === "application/pdf";
+  const isXlsx =
+    decodeResult?.mimeType ===
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const isText =
     decodeResult?.mimeType?.startsWith("text/") ||
     decodeResult?.mimeType === "application/json";
@@ -636,30 +803,38 @@ export default function Base64Converter() {
                   className="w-full h-[380px] border-0 rounded"
                 />
               )}
+              {decodeResult && !isDecoding && isXlsx && (
+                <XlsxPreview blob={decodeResult.blob} />
+              )}
               {decodeResult && !isDecoding && isText && (
                 <TextPreview blob={decodeResult.blob} />
               )}
-              {decodeResult && !isDecoding && !isImage && !isPdf && !isText && (
-                <div className="text-center text-muted-foreground">
-                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm font-medium mb-1">
-                    {(
-                      MIME_TO_EXT[decodeResult.mimeType] || "binary"
-                    ).toUpperCase()}{" "}
-                    file decoded
-                  </p>
-                  <p className="text-xs opacity-60 mb-4">
-                    No in-browser preview for{" "}
-                    <span className="font-mono">{decodeResult.mimeType}</span>
-                  </p>
-                  <button
-                    onClick={handleDecodeDownload}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-foreground text-background mx-auto hover:opacity-90 transition-opacity"
-                  >
-                    <Download className="h-3 w-3" /> Download File
-                  </button>
-                </div>
-              )}
+              {decodeResult &&
+                !isDecoding &&
+                !isImage &&
+                !isPdf &&
+                !isText &&
+                !isXlsx && (
+                  <div className="text-center text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-medium mb-1">
+                      {(
+                        MIME_TO_EXT[decodeResult.mimeType] || "binary"
+                      ).toUpperCase()}{" "}
+                      file decoded
+                    </p>
+                    <p className="text-xs opacity-60 mb-4">
+                      No in-browser preview for{" "}
+                      <span className="font-mono">{decodeResult.mimeType}</span>
+                    </p>
+                    <button
+                      onClick={handleDecodeDownload}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-foreground text-background mx-auto hover:opacity-90 transition-opacity"
+                    >
+                      <Download className="h-3 w-3" /> Download File
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -862,8 +1037,9 @@ export default function Base64Converter() {
                 className="w-full h-full min-h-[420px] border-0 rounded"
               />
             )}
+            {isXlsx && <XlsxPreview blob={decodeResult.blob} fullscreen />}
             {isText && <TextPreview blob={decodeResult.blob} />}
-            {!isImage && !isPdf && !isText && (
+            {!isImage && !isPdf && !isText && !isXlsx && (
               <div className="text-center text-muted-foreground">
                 <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="text-sm font-medium mb-3">

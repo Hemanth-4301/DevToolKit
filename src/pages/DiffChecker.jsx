@@ -161,10 +161,9 @@ function computeInlineCharDiff(a, b) {
   return result;
 }
 
-function SideBySideDiff({ diff, options }) {
-  const CONTEXT = options.showUnchanged ? Infinity : 3;
-
-  const visible = diff.reduce((acc, item, idx) => {
+function buildVisible(diff, showUnchanged) {
+  const CONTEXT = showUnchanged ? Infinity : 3;
+  return diff.reduce((acc, item, idx) => {
     if (item.type !== "equal") {
       acc.push(idx);
       return acc;
@@ -175,126 +174,353 @@ function SideBySideDiff({ diff, options }) {
     if (nearby) acc.push(idx);
     return acc;
   }, []);
+}
 
-  let prev = -2;
+// Pair adjacent removed+added blocks so we render them as modified rows on the
+// same line — this matches GitHub's split view.
+function pairBlocks(diff) {
   const rows = [];
-  for (const idx of visible) {
-    if (idx - prev > 1 && prev >= 0) {
+  let i = 0;
+  while (i < diff.length) {
+    const item = diff[i];
+    if (item.type === "removed" || item.type === "added") {
+      const firstType = item.type;
+      const secondType = firstType === "removed" ? "added" : "removed";
+
+      const first = [];
+      let j = i;
+      while (j < diff.length && diff[j].type === firstType) {
+        first.push(diff[j]);
+        j++;
+      }
+
+      const second = [];
+      while (j < diff.length && diff[j].type === secondType) {
+        second.push(diff[j]);
+        j++;
+      }
+
+      const max = Math.max(first.length, second.length);
+      for (let k = 0; k < max; k++) {
+        const left =
+          firstType === "removed" ? first[k] || null : second[k] || null;
+        const right =
+          firstType === "added" ? first[k] || null : second[k] || null;
+        rows.push({
+          left,
+          right,
+          paired: Boolean(left && right),
+          srcIdx: i + k,
+        });
+      }
+      i = j;
+    } else {
+      rows.push({ left: item, right: item, paired: false, srcIdx: i });
+      i++;
+    }
+  }
+  return rows;
+}
+
+function renderInlineSide(side, charDiff) {
+  return charDiff
+    .map((cd, ci) => {
+      if (cd.type === "equal") return <span key={ci}>{cd.text}</span>;
+      if (side === "left" && cd.type === "removed") {
+        return (
+          <span
+            key={ci}
+            className="bg-red-400/25 dark:bg-red-500/30 text-red-700 dark:text-red-100 rounded px-0.5"
+          >
+            {cd.text}
+          </span>
+        );
+      }
+      if (side === "right" && cd.type === "added") {
+        return (
+          <span
+            key={ci}
+            className="bg-green-400/25 dark:bg-green-500/30 text-green-700 dark:text-green-100 rounded px-0.5"
+          >
+            {cd.text}
+          </span>
+        );
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function UnifiedDiffGithub({ diff, options }) {
+  const visible = buildVisible(diff, options.showUnchanged);
+  const visibleSet = new Set(visible);
+  const pairedRows = pairBlocks(diff);
+  const rows = [];
+  let prevIdx = -2;
+
+  for (const row of pairedRows) {
+    if (!visibleSet.has(row.srcIdx)) continue;
+
+    if (row.srcIdx - prevIdx > 1 && prevIdx >= 0) {
       rows.push(
         <div
-          key={`sep-${idx}`}
-          className="flex text-xs text-muted-foreground/60 bg-muted/30"
+          key={`sep-${row.srcIdx}`}
+          className="flex text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-y border-blue-200 dark:border-blue-900"
         >
-          <div className="w-12 shrink-0 px-2 py-1 text-center border-r border-border">
-            ···
-          </div>
-          <div className="flex-1 px-4 py-1">···</div>
-          <div className="w-12 shrink-0 px-2 py-1 text-center border-x border-border">
-            ···
-          </div>
-          <div className="flex-1 px-4 py-1">···</div>
+          <div className="px-4 py-2">…</div>
         </div>,
       );
     }
-    const item = diff[idx];
-    const leftNum = item.leftIdx !== undefined ? item.leftIdx + 1 : "";
-    const rightNum = item.rightIdx !== undefined ? item.rightIdx + 1 : "";
-    const leftBg =
-      item.type === "removed"
-        ? "bg-red-500/10"
-        : item.type === "equal"
-          ? ""
-          : "bg-transparent";
-    const rightBg =
-      item.type === "added"
-        ? "bg-green-500/10"
-        : item.type === "equal"
-          ? ""
-          : "bg-transparent";
 
-    let leftContent = item.left || "";
-    let rightContent = item.right || "";
+    const left = row.left;
+    const right = row.right;
+    const leftNum = left?.leftIdx !== undefined ? left.leftIdx + 1 : "";
+    const rightNum = right?.rightIdx !== undefined ? right.rightIdx + 1 : "";
 
-    if (
-      options.inlineCharDiff &&
-      item.type !== "equal" &&
-      item.left &&
-      item.right
-    ) {
-      const charDiff = computeInlineCharDiff(item.left, item.right);
-      leftContent = charDiff
-        .map((cd, ci) =>
-          cd.type === "removed" ? (
-            <mark key={ci} className="bg-red-500/25 text-foreground rounded-sm">
-              {cd.text}
-            </mark>
-          ) : cd.type === "equal" ? (
-            <span key={ci}>{cd.text}</span>
-          ) : null,
-        )
-        .filter(Boolean);
-      rightContent = charDiff
-        .map((cd, ci) =>
-          cd.type === "added" ? (
-            <mark
-              key={ci}
-              className="bg-green-500/25 text-foreground rounded-sm"
-            >
-              {cd.text}
-            </mark>
-          ) : cd.type === "equal" ? (
-            <span key={ci}>{cd.text}</span>
-          ) : null,
-        )
-        .filter(Boolean);
+    if (row.paired && left && right) {
+      const charDiff = options.inlineCharDiff
+        ? computeInlineCharDiff(left.left, right.right)
+        : null;
+      const leftContent = charDiff
+        ? renderInlineSide("left", charDiff)
+        : left.left;
+      const rightContent = charDiff
+        ? renderInlineSide("right", charDiff)
+        : right.right;
+
+      rows.push(
+        <div
+          key={`paired-${row.srcIdx}`}
+          className="flex text-xs font-mono leading-6 bg-muted/20"
+        >
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {leftNum}
+          </div>
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {rightNum}
+          </div>
+          <div className="w-6 shrink-0 px-1 py-1 text-center select-none text-muted-foreground/70">
+            ~
+          </div>
+          <div className="flex-1 px-3 py-1 whitespace-pre-wrap break-all">
+            <span className="text-red-700 dark:text-red-300">
+              {leftContent}
+            </span>
+            <span className="mx-2 text-muted-foreground">→</span>
+            <span className="text-green-700 dark:text-green-300">
+              {rightContent}
+            </span>
+          </div>
+        </div>,
+      );
+    } else if (left && left.type === "removed") {
+      rows.push(
+        <div
+          key={`removed-${row.srcIdx}`}
+          className="flex text-xs font-mono leading-6 bg-red-50 dark:bg-red-950/20"
+        >
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {leftNum}
+          </div>
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none" />
+          <div className="w-6 shrink-0 px-1 py-1 text-center select-none text-muted-foreground/70">
+            −
+          </div>
+          <div className="flex-1 px-3 py-1 whitespace-pre-wrap break-all text-red-700 dark:text-red-300">
+            {left.left}
+          </div>
+        </div>,
+      );
+    } else if (right && right.type === "added") {
+      rows.push(
+        <div
+          key={`added-${row.srcIdx}`}
+          className="flex text-xs font-mono leading-6 bg-green-50 dark:bg-green-950/20"
+        >
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none" />
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {rightNum}
+          </div>
+          <div className="w-6 shrink-0 px-1 py-1 text-center select-none text-muted-foreground/70">
+            +
+          </div>
+          <div className="flex-1 px-3 py-1 whitespace-pre-wrap break-all text-green-700 dark:text-green-300">
+            {right.right}
+          </div>
+        </div>,
+      );
+    } else if (left && left.type === "equal") {
+      rows.push(
+        <div
+          key={`equal-${row.srcIdx}`}
+          className="flex text-xs font-mono leading-6"
+        >
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {leftNum}
+          </div>
+          <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/70 select-none">
+            {rightNum}
+          </div>
+          <div className="w-6 shrink-0 px-1 py-1 text-center select-none text-muted-foreground/70">
+            {" "}
+          </div>
+          <div className="flex-1 px-3 py-1 whitespace-pre-wrap break-all">
+            {left.left}
+          </div>
+        </div>,
+      );
+    }
+
+    prevIdx = row.srcIdx;
+  }
+
+  return <div className="font-mono text-xs">{rows}</div>;
+}
+
+function InlineUnifiedDiff({ diff, options }) {
+  return <UnifiedDiffGithub diff={diff} options={options} />;
+}
+
+function SideBySideDiff({ diff, options }) {
+  const visible = buildVisible(diff, options.showUnchanged);
+  const visibleSet = new Set(visible);
+  const paired = pairBlocks(diff);
+
+  let prevSrc = -2;
+  const rows = [];
+  for (const row of paired) {
+    if (!visibleSet.has(row.srcIdx)) continue;
+    if (row.srcIdx - prevSrc > 1 && prevSrc >= 0) {
+      rows.push(
+        <div
+          key={`sep-${row.srcIdx}`}
+          className="flex text-xs bg-[#dbedff] dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-y border-blue-200 dark:border-blue-900"
+        >
+          <div className="w-10 shrink-0 px-2 py-1 text-right select-none">
+            …
+          </div>
+          <div className="w-6 shrink-0 select-none" />
+          <div className="flex-1 px-3 py-1 italic">…</div>
+          <div className="w-10 shrink-0 px-2 py-1 text-right select-none">
+            …
+          </div>
+          <div className="w-6 shrink-0 select-none" />
+          <div className="flex-1 px-3 py-1 italic">…</div>
+        </div>,
+      );
+    }
+
+    const { left, right } = row;
+    const leftNum = left?.leftIdx !== undefined ? left.leftIdx + 1 : "";
+    const rightNum = right?.rightIdx !== undefined ? right.rightIdx + 1 : "";
+
+    const leftEmpty = !left;
+    const rightEmpty = !right;
+    const leftType = left?.type;
+    const rightType = right?.type;
+
+    // GitHub-style colors:
+    // - light removed line: #ffebe9 / dark: rgb(244 67 54 / 0.15)
+    // - light added line:   #e6ffec / dark: rgb(34 197 94 / 0.15)
+    // - light gutter on changed line is slightly darker
+    const leftRowBg = leftEmpty
+      ? "bg-[#f6f8fa] dark:bg-muted/30"
+      : leftType === "removed"
+        ? "bg-[#ffebe9] dark:bg-red-500/15"
+        : "";
+    const leftGutterBg = leftEmpty
+      ? "bg-[#f6f8fa] dark:bg-muted/30"
+      : leftType === "removed"
+        ? "bg-[#ffd7d5] dark:bg-red-500/25"
+        : "";
+    const rightRowBg = rightEmpty
+      ? "bg-[#f6f8fa] dark:bg-muted/30"
+      : rightType === "added"
+        ? "bg-[#e6ffec] dark:bg-green-500/15"
+        : "";
+    const rightGutterBg = rightEmpty
+      ? "bg-[#f6f8fa] dark:bg-muted/30"
+      : rightType === "added"
+        ? "bg-[#abf2bc] dark:bg-green-500/25"
+        : "";
+
+    const leftMarker =
+      leftType === "removed" ? "−" : leftType === "equal" ? " " : " ";
+    const rightMarker =
+      rightType === "added" ? "+" : rightType === "equal" ? " " : " ";
+
+    let leftContent = left?.left ?? "";
+    let rightContent = right?.right ?? "";
+
+    if (options.inlineCharDiff && row.paired) {
+      const charDiff = computeInlineCharDiff(left.left, right.right);
+      leftContent = renderInlineSide("left", charDiff);
+      rightContent = renderInlineSide("right", charDiff);
     }
 
     rows.push(
-      <div key={idx} className="flex text-xs font-mono group">
-        <div className="w-12 shrink-0 px-2 py-1 text-right text-muted-foreground/50 select-none border-r border-border">
+      <div
+        key={row.srcIdx}
+        className="flex text-xs font-mono leading-5 hover:brightness-[1.02]"
+      >
+        <div
+          className={cn(
+            "w-10 shrink-0 px-2 py-0.5 text-right text-muted-foreground/70 select-none",
+            leftGutterBg,
+          )}
+        >
           {leftNum}
         </div>
         <div
           className={cn(
-            "flex-1 px-4 py-1 min-w-0 whitespace-pre-wrap break-all",
-            leftBg,
+            "w-5 shrink-0 px-1 py-0.5 text-center select-none text-muted-foreground/70",
+            leftGutterBg,
+          )}
+        >
+          {leftMarker}
+        </div>
+        <div
+          className={cn(
+            "flex-1 px-3 py-0.5 min-w-0 whitespace-pre-wrap break-all",
+            leftRowBg,
           )}
         >
           {leftContent}
         </div>
-        <div className="w-12 shrink-0 px-2 py-1 text-right text-muted-foreground/50 select-none border-x border-border">
+        <div
+          className={cn(
+            "w-10 shrink-0 px-2 py-0.5 text-right text-muted-foreground/70 select-none border-l border-border",
+            rightGutterBg,
+          )}
+        >
           {rightNum}
         </div>
         <div
           className={cn(
-            "flex-1 px-4 py-1 min-w-0 whitespace-pre-wrap break-all",
-            rightBg,
+            "w-5 shrink-0 px-1 py-0.5 text-center select-none text-muted-foreground/70",
+            rightGutterBg,
+          )}
+        >
+          {rightMarker}
+        </div>
+        <div
+          className={cn(
+            "flex-1 px-3 py-0.5 min-w-0 whitespace-pre-wrap break-all",
+            rightRowBg,
           )}
         >
           {rightContent}
         </div>
       </div>,
     );
-    prev = idx;
+    prevSrc = row.srcIdx;
   }
-  return (
-    <div className="font-mono text-xs divide-y divide-border/50">{rows}</div>
-  );
+
+  return <div className="font-mono text-xs">{rows}</div>;
 }
 
 function UnifiedDiff({ diff, options }) {
-  const CONTEXT = options.showUnchanged ? Infinity : 3;
-  const visible = diff.reduce((acc, item, idx) => {
-    if (item.type !== "equal") {
-      acc.push(idx);
-      return acc;
-    }
-    const nearby = diff.some(
-      (d, di) => Math.abs(di - idx) <= CONTEXT && d.type !== "equal",
-    );
-    if (nearby) acc.push(idx);
-    return acc;
-  }, []);
+  const visible = buildVisible(diff, options.showUnchanged);
 
   let prev = -2;
   const rows = [];
@@ -303,9 +529,16 @@ function UnifiedDiff({ diff, options }) {
       rows.push(
         <div
           key={`sep-${idx}`}
-          className="text-xs text-muted-foreground/50 px-4 py-1 bg-muted/30"
+          className="flex text-xs bg-[#dbedff] dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-y border-blue-200 dark:border-blue-900"
         >
-          ···
+          <div className="w-10 shrink-0 px-2 py-1 text-right select-none">
+            …
+          </div>
+          <div className="w-10 shrink-0 px-2 py-1 text-right select-none">
+            …
+          </div>
+          <div className="w-6 shrink-0 select-none" />
+          <div className="flex-1 px-3 py-1 italic">…</div>
         </div>,
       );
     }
@@ -314,35 +547,60 @@ function UnifiedDiff({ diff, options }) {
       item.type === "added" ? "+" : item.type === "removed" ? "−" : " ";
     const rowBg =
       item.type === "added"
-        ? "bg-green-500/10"
+        ? "bg-[#e6ffec] dark:bg-green-500/15"
         : item.type === "removed"
-          ? "bg-red-500/10"
+          ? "bg-[#ffebe9] dark:bg-red-500/15"
           : "";
-    const lineNum =
-      item.rightIdx !== undefined
-        ? item.rightIdx + 1
-        : item.leftIdx !== undefined
-          ? item.leftIdx + 1
+    const gutterBg =
+      item.type === "added"
+        ? "bg-[#abf2bc] dark:bg-green-500/25"
+        : item.type === "removed"
+          ? "bg-[#ffd7d5] dark:bg-red-500/25"
           : "";
-    const content = item.right || item.left || "";
+
+    const leftNum = item.leftIdx !== undefined ? item.leftIdx + 1 : "";
+    const rightNum = item.rightIdx !== undefined ? item.rightIdx + 1 : "";
+    const content = item.right ?? item.left ?? "";
+
     rows.push(
-      <div key={idx} className={cn("flex text-xs font-mono", rowBg)}>
-        <div className="w-10 shrink-0 px-2 py-1 text-right text-muted-foreground/50 select-none border-r border-border">
-          {lineNum}
+      <div key={idx} className="flex text-xs font-mono leading-5">
+        <div
+          className={cn(
+            "w-10 shrink-0 px-2 py-0.5 text-right text-muted-foreground/70 select-none",
+            gutterBg,
+          )}
+        >
+          {leftNum}
         </div>
-        <div className="w-6 shrink-0 px-1 py-1 text-center select-none">
+        <div
+          className={cn(
+            "w-10 shrink-0 px-2 py-0.5 text-right text-muted-foreground/70 select-none",
+            gutterBg,
+          )}
+        >
+          {rightNum}
+        </div>
+        <div
+          className={cn(
+            "w-6 shrink-0 px-1 py-0.5 text-center select-none text-muted-foreground/70",
+            gutterBg,
+          )}
+        >
           {prefix}
         </div>
-        <div className="flex-1 px-2 py-1 whitespace-pre-wrap break-all">
+        <div
+          className={cn(
+            "flex-1 px-3 py-0.5 whitespace-pre-wrap break-all",
+            rowBg,
+          )}
+        >
           {content}
         </div>
       </div>,
     );
     prev = idx;
   }
-  return (
-    <div className="font-mono text-xs divide-y divide-border/50">{rows}</div>
-  );
+  return <div className="font-mono text-xs">{rows}</div>;
 }
 
 export default function DiffChecker() {
@@ -364,6 +622,16 @@ export default function DiffChecker() {
     showUnchanged: false,
     inlineCharDiff: true,
   });
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === "Enter") {
+        handleCompare();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [leftText, rightText]);
 
   const leftFile = useRef(null);
   const rightFile = useRef(null);
@@ -455,6 +723,7 @@ export default function DiffChecker() {
                     ? "bg-foreground text-background"
                     : "hover:bg-accent text-muted-foreground",
                 )}
+                title="Show removed and added side by side"
               >
                 Side by Side
               </button>
@@ -466,6 +735,7 @@ export default function DiffChecker() {
                     ? "bg-foreground text-background"
                     : "hover:bg-accent text-muted-foreground",
                 )}
+                title="Show changes with +/- prefixes"
               >
                 Unified
               </button>
@@ -632,22 +902,26 @@ export default function DiffChecker() {
             <div className="flex items-center border-b border-border px-4 py-2 bg-muted/30 text-xs font-medium">
               {viewMode === "side" ? (
                 <>
-                  <div className="w-12 shrink-0" />
-                  <div className="flex-1 pl-4">{leftLabel}</div>
-                  <div className="w-12 shrink-0" />
-                  <div className="flex-1 pl-4">{rightLabel}</div>
+                  <div className="w-10 shrink-0" />
+                  <div className="w-5 shrink-0" />
+                  <div className="flex-1 px-3">{leftLabel}</div>
+                  <div className="w-10 shrink-0 border-l border-border" />
+                  <div className="w-5 shrink-0" />
+                  <div className="flex-1 px-3">{rightLabel}</div>
                 </>
               ) : (
                 <>
-                  <div className="w-16 shrink-0" />
-                  <div className="flex-1">Diff</div>
+                  <div className="w-10 shrink-0" />
+                  <div className="w-10 shrink-0" />
+                  <div className="w-6 shrink-0" />
+                  <div className="flex-1 px-3">Diff</div>
                 </>
               )}
             </div>
             {viewMode === "side" ? (
               <SideBySideDiff diff={diff} options={options} />
             ) : (
-              <UnifiedDiff diff={diff} options={options} />
+              <InlineUnifiedDiff diff={diff} options={options} />
             )}
           </div>
         </div>
@@ -668,22 +942,25 @@ export default function DiffChecker() {
             <div className="flex items-center border-b border-border px-4 py-2 bg-muted/30 text-xs font-medium">
               {viewMode === "side" ? (
                 <>
-                  <div className="w-12 shrink-0" />
-                  <div className="flex-1 pl-4">{leftLabel}</div>
-                  <div className="w-12 shrink-0" />
-                  <div className="flex-1 pl-4">{rightLabel}</div>
+                  <div className="w-10 shrink-0" />
+                  <div className="w-5 shrink-0" />
+                  <div className="flex-1 px-3">{leftLabel}</div>
+                  <div className="w-10 shrink-0 border-l border-border" />
+                  <div className="w-5 shrink-0" />
+                  <div className="flex-1 px-3">{rightLabel}</div>
                 </>
               ) : (
                 <>
-                  <div className="w-16 shrink-0" />
-                  <div className="flex-1">Diff</div>
+                  <div className="w-10 shrink-0" />
+                  <div className="w-6 shrink-0" />
+                  <div className="flex-1 px-3">Diff</div>
                 </>
               )}
             </div>
             {viewMode === "side" ? (
               <SideBySideDiff diff={diff} options={options} />
             ) : (
-              <UnifiedDiff diff={diff} options={options} />
+              <InlineUnifiedDiff diff={diff} options={options} />
             )}
           </div>
         </div>
