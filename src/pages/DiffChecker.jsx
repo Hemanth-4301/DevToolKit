@@ -603,7 +603,7 @@ function UnifiedDiff({ diff, options }) {
   return <div className="font-mono text-xs">{rows}</div>;
 }
 
-export default function DiffChecker() {
+export default function DiffChecker({ isActive = true }) {
   const initialState = getState();
   const [lang, setLang] = useState("Plain Text");
   const [viewMode, setViewMode] = useState("side");
@@ -619,11 +619,13 @@ export default function DiffChecker() {
     ignoreBlankLines: false,
     ignoreCase: false,
     trimTrailing: true,
-    showUnchanged: false,
+    showUnchanged: true,
     inlineCharDiff: true,
   });
 
   useEffect(() => {
+    if (!isActive) return;
+
     const handleKeyDown = (e) => {
       if (e.ctrlKey && e.key === "Enter") {
         handleCompare();
@@ -631,7 +633,7 @@ export default function DiffChecker() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [leftText, rightText]);
+  }, [isActive, leftText, rightText]);
 
   const leftFile = useRef(null);
   const rightFile = useRef(null);
@@ -983,7 +985,7 @@ function PanelInput({
   const [editVal, setEditVal] = useState(label);
 
   return (
-      <div className="tool-panel">
+    <div className="tool-panel">
       <div className="tool-panel-header">
         <div className="tool-panel-title">
           {editing ? (

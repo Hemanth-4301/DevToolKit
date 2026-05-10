@@ -68,7 +68,7 @@ export default function App() {
         </section>
 
         <section className={activeTab === "diff" ? "block" : "hidden"}>
-          <DiffChecker />
+          <DiffChecker isActive={activeTab === "diff"} />
         </section>
 
         <section className={activeTab === "stringify" ? "block" : "hidden"}>
