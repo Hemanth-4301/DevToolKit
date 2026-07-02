@@ -711,7 +711,7 @@ export default function Base64Converter() {
                 'Paste Base64 string here…\n(with or without "data:mime/type;base64," prefix)\n\nCtrl+Enter to decode'
               }
               className={cn(
-                "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
+                "w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
                 decodeInputInvalid
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : decodeInputValid
@@ -770,7 +770,7 @@ export default function Base64Converter() {
               )}
             </div>
 
-            <div className="w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card flex items-center justify-center overflow-hidden">
+            <div className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card flex items-center justify-center overflow-hidden">
               {isDecoding && (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -788,7 +788,7 @@ export default function Base64Converter() {
                 <img
                   src={decodeResult.objectUrl}
                   alt="Decoded preview"
-                  className="max-w-full max-h-[380px] object-contain rounded"
+                  className="max-w-full max-h-[200px] sm:max-h-[380px] object-contain rounded"
                   onError={() =>
                     setDecodeError(
                       "Image failed to render. Try overriding the MIME type.",
@@ -800,7 +800,7 @@ export default function Base64Converter() {
                 <iframe
                   src={decodeResult.objectUrl}
                   title="PDF Preview"
-                  className="w-full h-[380px] border-0 rounded"
+                  className="w-full h-[280px] sm:h-[380px] border-0 rounded"
                 />
               )}
               {decodeResult && !isDecoding && isXlsx && (
@@ -861,7 +861,7 @@ export default function Base64Converter() {
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors"
+              className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors"
             >
               {isEncoding ? (
                 <div className="w-full max-w-xs text-center">
@@ -986,7 +986,7 @@ export default function Base64Converter() {
                 await handlePreviewHotkeys(e, displayOutput);
               }}
               className={cn(
-                "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-xs overflow-auto",
+                "w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-xs overflow-auto",
                 encodeWrap
                   ? "whitespace-pre-wrap break-all"
                   : "whitespace-pre overflow-x-auto",
@@ -1034,7 +1034,7 @@ export default function Base64Converter() {
               <iframe
                 src={decodeResult.objectUrl}
                 title="PDF Preview"
-                className="w-full h-full min-h-[320px] sm:min-h-[420px] border-0 rounded"
+                className="w-full h-full min-h-[240px] sm:min-h-[420px] border-0 rounded"
               />
             )}
             {isXlsx && <XlsxPreview blob={decodeResult.blob} fullscreen />}

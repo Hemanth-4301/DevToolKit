@@ -448,7 +448,7 @@ export default function StringifyConverter() {
                 );
               }}
               className={cn(
-                "w-full min-h-[320px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                "w-full min-h-[240px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveJsonError
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : "border-green-500/40 focus:ring-green-500/30",
@@ -478,7 +478,7 @@ export default function StringifyConverter() {
                 );
               }}
               className={cn(
-                "w-full min-h-[320px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
+                "w-full min-h-[240px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveStringError
                   ? "border-red-500/50 focus:ring-red-500/30"
                   : liveStringified

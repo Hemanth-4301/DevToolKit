@@ -9,6 +9,7 @@ const TABS = [
   { id: "sql", label: "SQL Formatter" },
   { id: "diff", label: "Diff Checker" },
   { id: "base64", label: "Base64 Converter" },
+  { id: "jwt", label: "JWT Decoder" },
   { id: "stringify", label: "Stringify ↔ JSON" },
 ];
 

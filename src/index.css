@@ -256,11 +256,46 @@
   }
 
   .tool-toolbar {
-    @apply mb-5 flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center;
+    @apply mb-5 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center;
+    position: relative;
+    background: hsl(var(--card));
+    isolation: isolate;
+  }
+
+  .tool-toolbar::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from var(--toolbar-angle, 0deg),
+      hsl(var(--border)) 0%,
+      hsl(var(--border)) 80%,
+      #1d4ed8 83%,
+      #2563eb 86%,
+      #3b82f6 89%,
+      #60a5fa 92%,
+      #93c5fd 95%,
+      #3b82f6 97%,
+      hsl(var(--border)) 100%
+    );
+    animation: toolbar-border-spin 5s linear infinite;
+    z-index: -1;
+  }
+
+  .tool-toolbar::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: calc(var(--radius) - 1px);
+    background: hsl(var(--card));
+    z-index: -1;
   }
 
   .tool-toolbar-main {
     @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tool-toolbar-action {
@@ -417,6 +452,38 @@
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+}
+
+/* ── TOOLBAR ANIMATED BORDER ── */
+@property --toolbar-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes toolbar-border-spin {
+  to { --toolbar-angle: 360deg; }
+}
+
+/* ── OUTPUT LINE ANIMATION ── */
+@keyframes line-pop-in {
+  0%   { opacity: 0; transform: translateY(5px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.output-line {
+  display: block;
+  animation: line-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--line-delay, 0s);
+}
+
+@keyframes panel-fade-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.panel-animate {
+  animation: panel-fade-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── UTILITIES ── */

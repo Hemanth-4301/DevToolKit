@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   Copy,
   Download,
@@ -45,89 +45,350 @@ ORDER BY r.rank ASC
 LIMIT 25;`;
 
 const SQL_KEYWORDS = [
-  "SELECT",
-  "FROM",
-  "WHERE",
-  "JOIN",
-  "LEFT JOIN",
-  "RIGHT JOIN",
-  "INNER JOIN",
-  "OUTER JOIN",
-  "FULL JOIN",
-  "CROSS JOIN",
-  "ON",
-  "GROUP BY",
-  "ORDER BY",
-  "HAVING",
-  "LIMIT",
-  "OFFSET",
-  "INSERT",
-  "INTO",
-  "VALUES",
-  "UPDATE",
-  "SET",
-  "DELETE",
-  "CREATE",
-  "TABLE",
-  "ALTER",
-  "DROP",
-  "WITH",
-  "AS",
-  "AND",
-  "OR",
-  "NOT",
-  "IN",
-  "EXISTS",
-  "UNION",
-  "UNION ALL",
-  "CASE",
-  "WHEN",
-  "THEN",
-  "ELSE",
-  "END",
-  "DISTINCT",
-  "TOP",
-  "BETWEEN",
-  "LIKE",
-  "IS",
-  "NULL",
-  "ASC",
-  "DESC",
-  "PRIMARY",
-  "KEY",
-  "FOREIGN",
-  "REFERENCES",
-  "INDEX",
-  "UNIQUE",
-  "IF",
-  "BEGIN",
-  "COMMIT",
-  "ROLLBACK",
-  "TRANSACTION",
-  "OVER",
-  "PARTITION",
-  "RANK",
-  "ROW_NUMBER",
-  "COUNT",
-  "SUM",
-  "AVG",
-  "MIN",
-  "MAX",
-  "COALESCE",
-  "NULLIF",
-  "CAST",
-  "CONVERT",
-  "EXTRACT",
-  "DATE",
-  "SUBSTRING",
-  "LEFT",
-  "RIGHT",
-  "TRIM",
-  "UPPER",
-  "LOWER",
-  "LENGTH",
-  "CONCAT",
-  "REPLACE",
+  ...new Set([
+    // DML
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "JOIN",
+    "LEFT JOIN",
+    "RIGHT JOIN",
+    "INNER JOIN",
+    "OUTER JOIN",
+    "FULL JOIN",
+    "FULL OUTER JOIN",
+    "CROSS JOIN",
+    "NATURAL JOIN",
+    "ON",
+    "USING",
+    "GROUP BY",
+    "ORDER BY",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "FETCH",
+    "NEXT",
+    "ROWS",
+    "ONLY",
+    "INSERT",
+    "INTO",
+    "VALUES",
+    "UPDATE",
+    "SET",
+    "DELETE",
+    "MERGE",
+    "UPSERT",
+    "RETURNING",
+    // DDL
+    "CREATE",
+    "TABLE",
+    "ALTER",
+    "DROP",
+    "TRUNCATE",
+    "RENAME",
+    "ADD",
+    "COLUMN",
+    "CONSTRAINT",
+    "DEFAULT",
+    "NOT NULL",
+    "CHECK",
+    "UNIQUE",
+    "PRIMARY",
+    "KEY",
+    "FOREIGN",
+    "REFERENCES",
+    "INDEX",
+    "VIEW",
+    "MATERIALIZED",
+    "SCHEMA",
+    "DATABASE",
+    "SEQUENCE",
+    "TRIGGER",
+    "PROCEDURE",
+    "FUNCTION",
+    "ROUTINE",
+    "REPLACE",
+    // DCL/TCL
+    "GRANT",
+    "REVOKE",
+    "DENY",
+    "WITH",
+    "AS",
+    "TRANSACTION",
+    "BEGIN",
+    "COMMIT",
+    "ROLLBACK",
+    "SAVEPOINT",
+    "RELEASE",
+    // Logical
+    "AND",
+    "OR",
+    "NOT",
+    "IN",
+    "NOT IN",
+    "EXISTS",
+    "NOT EXISTS",
+    "ANY",
+    "ALL",
+    "SOME",
+    "BETWEEN",
+    "LIKE",
+    "ILIKE",
+    "SIMILAR TO",
+    "IS",
+    "IS NOT",
+    "NULL",
+    "IS NULL",
+    "IS NOT NULL",
+    // Set ops
+    "UNION",
+    "UNION ALL",
+    "INTERSECT",
+    "EXCEPT",
+    "MINUS",
+    // Conditional
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END",
+    "IF",
+    "COALESCE",
+    "NULLIF",
+    "IIF",
+    "DECODE",
+    "NVL",
+    // Sorting/Distinct
+    "DISTINCT",
+    "TOP",
+    "ASC",
+    "DESC",
+    "NULLS",
+    "FIRST",
+    "LAST",
+    // Subquery/CTE
+    "RECURSIVE",
+    "LATERAL",
+    // Window functions
+    "OVER",
+    "PARTITION",
+    "BY",
+    "WINDOW",
+    "UNBOUNDED",
+    "PRECEDING",
+    "FOLLOWING",
+    "CURRENT ROW",
+    "RANGE",
+    "ROWS",
+    // Aggregate functions
+    "COUNT",
+    "SUM",
+    "AVG",
+    "MIN",
+    "MAX",
+    "STDDEV",
+    "VARIANCE",
+    "GROUP_CONCAT",
+    "STRING_AGG",
+    "ARRAY_AGG",
+    "JSON_AGG",
+    "LISTAGG",
+    // Ranking window functions
+    "RANK",
+    "DENSE_RANK",
+    "ROW_NUMBER",
+    "NTILE",
+    "PERCENT_RANK",
+    "CUME_DIST",
+    "LEAD",
+    "LAG",
+    "FIRST_VALUE",
+    "LAST_VALUE",
+    "NTH_VALUE",
+    // Type conversion
+    "CAST",
+    "CONVERT",
+    "TRY_CAST",
+    "TRY_CONVERT",
+    "PARSE",
+    "TRY_PARSE",
+    // String functions
+    "CONCAT",
+    "CONCAT_WS",
+    "SUBSTRING",
+    "SUBSTR",
+    "LEFT",
+    "RIGHT",
+    "TRIM",
+    "LTRIM",
+    "RTRIM",
+    "UPPER",
+    "LOWER",
+    "LENGTH",
+    "LEN",
+    "CHAR_LENGTH",
+    "REPLACE",
+    "STUFF",
+    "CHARINDEX",
+    "PATINDEX",
+    "INSTR",
+    "POSITION",
+    "FORMAT",
+    "STR",
+    "SPACE",
+    "REPLICATE",
+    "REPEAT",
+    "REVERSE",
+    "SOUNDEX",
+    "DIFFERENCE",
+    "ASCII",
+    "CHAR",
+    "UNICODE",
+    "NCHAR",
+    "STRING_SPLIT",
+    // Date/time functions
+    "DATE",
+    "DATETIME",
+    "TIME",
+    "TIMESTAMP",
+    "INTERVAL",
+    "EXTRACT",
+    "DATEPART",
+    "DATENAME",
+    "DATEADD",
+    "DATEDIFF",
+    "GETDATE",
+    "GETUTCDATE",
+    "NOW",
+    "SYSDATE",
+    "CURRENT_DATE",
+    "CURRENT_TIME",
+    "CURRENT_TIMESTAMP",
+    "SYSDATETIME",
+    "YEAR",
+    "MONTH",
+    "DAY",
+    "HOUR",
+    "MINUTE",
+    "SECOND",
+    "EOMONTH",
+    "DATEFROMPARTS",
+    "TIMEFROMPARTS",
+    // Math functions
+    "ABS",
+    "CEILING",
+    "FLOOR",
+    "ROUND",
+    "TRUNCATE",
+    "TRUNC",
+    "POWER",
+    "SQRT",
+    "EXP",
+    "LOG",
+    "LOG10",
+    "SIGN",
+    "MOD",
+    "PI",
+    "RAND",
+    "RANDOM",
+    // JSON functions
+    "JSON_VALUE",
+    "JSON_QUERY",
+    "JSON_OBJECT",
+    "JSON_ARRAY",
+    "JSON_EXISTS",
+    "JSON_TABLE",
+    "JSON_ARRAYAGG",
+    "JSON_OBJECTAGG",
+    "OPENJSON",
+    "FOR JSON",
+    // NULL handling
+    "ISNULL",
+    "IFNULL",
+    "ZEROIFNULL",
+    // Misc
+    "EXPLAIN",
+    "ANALYZE",
+    "VERBOSE",
+    "EXEC",
+    "EXECUTE",
+    "CALL",
+    "DO",
+    "OUTPUT",
+    "OPENQUERY",
+    "OPENROWSET",
+    "OPENDATASOURCE",
+    "BULK",
+    "READTEXT",
+    "WRITETEXT",
+    "UPDATETEXT",
+    "ENABLE",
+    "DISABLE",
+    "REBUILD",
+    "REORGANIZE",
+    "INCLUDE",
+    "NOLOCK",
+    "READCOMMITTED",
+    "SERIALIZABLE",
+    "SNAPSHOT",
+    "READ",
+    "WRITE",
+    "WAIT",
+    "NOWAIT",
+    "TABLESAMPLE",
+    "PIVOT",
+    "UNPIVOT",
+    "APPLY",
+    "CROSS APPLY",
+    "OUTER APPLY",
+    "FOR",
+    "XML",
+    "PATH",
+    "AUTO",
+    "RAW",
+    "EXPLICIT",
+    "TYPE",
+    "ELEMENTS",
+    "XSINIL",
+    // Data types
+    "INT",
+    "INTEGER",
+    "BIGINT",
+    "SMALLINT",
+    "TINYINT",
+    "BIT",
+    "BOOLEAN",
+    "DECIMAL",
+    "NUMERIC",
+    "FLOAT",
+    "REAL",
+    "MONEY",
+    "SMALLMONEY",
+    "CHAR",
+    "VARCHAR",
+    "NCHAR",
+    "NVARCHAR",
+    "TEXT",
+    "NTEXT",
+    "CLOB",
+    "BINARY",
+    "VARBINARY",
+    "IMAGE",
+    "BLOB",
+    "DATETIME2",
+    "SMALLDATETIME",
+    "DATETIMEOFFSET",
+    "JSON",
+    "UNIQUEIDENTIFIER",
+    "GUID",
+    "UUID",
+    "CURSOR",
+    "ROWVERSION",
+    "SQL_VARIANT",
+    "GEOMETRY",
+    "GEOGRAPHY",
+    "HIERARCHYID",
+  ]),
 ];
 
 function getHistory() {
@@ -269,22 +530,303 @@ function capitalizeKeywords(sql) {
   });
 }
 
+const HIGHLIGHT_LINE_LIMIT = 2000;
+
 function highlightSQL(sql) {
   const lines = sql.split("\n");
-  return lines.map((line, li) => {
-    const tokens = tokenizeLine(line);
-    return (
-      <span key={li}>
-        {tokens}
-        {li < lines.length - 1 ? "\n" : ""}
-      </span>
-    );
-  });
+  if (lines.length > HIGHLIGHT_LINE_LIMIT) {
+    return <span className="text-foreground">{sql}</span>;
+  }
+  return lines.map((line, li) => (
+    <span
+      key={li}
+      className="output-line"
+      style={{ "--line-delay": `${Math.min(li, 40) * 0.018}s` }}
+    >
+      {tokenizeLine(line)}
+      {li < lines.length - 1 ? "\n" : ""}
+    </span>
+  ));
+}
+
+// Keyword color categories — like a real SQL editor
+const KW_DML = new Set([
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "JOIN",
+  "LEFT",
+  "RIGHT",
+  "INNER",
+  "OUTER",
+  "FULL",
+  "CROSS",
+  "NATURAL",
+  "ON",
+  "USING",
+  "INTO",
+  "INSERT",
+  "UPDATE",
+  "DELETE",
+  "MERGE",
+  "UPSERT",
+  "RETURNING",
+  "SET",
+  "VALUES",
+]);
+const KW_CLAUSE = new Set([
+  "GROUP",
+  "ORDER",
+  "BY",
+  "HAVING",
+  "LIMIT",
+  "OFFSET",
+  "FETCH",
+  "NEXT",
+  "ROWS",
+  "ONLY",
+  "DISTINCT",
+  "TOP",
+  "ASC",
+  "DESC",
+  "NULLS",
+  "FIRST",
+  "LAST",
+  "WITH",
+  "AS",
+  "UNION",
+  "INTERSECT",
+  "EXCEPT",
+  "MINUS",
+  "UNION ALL",
+]);
+const KW_DDL = new Set([
+  "CREATE",
+  "ALTER",
+  "DROP",
+  "TRUNCATE",
+  "RENAME",
+  "ADD",
+  "COLUMN",
+  "TABLE",
+  "VIEW",
+  "INDEX",
+  "SCHEMA",
+  "DATABASE",
+  "SEQUENCE",
+  "TRIGGER",
+  "PROCEDURE",
+  "FUNCTION",
+  "REPLACE",
+  "MATERIALIZED",
+  "UNIQUE",
+  "PRIMARY",
+  "KEY",
+  "FOREIGN",
+  "REFERENCES",
+  "CONSTRAINT",
+  "DEFAULT",
+  "CHECK",
+  "ENABLE",
+  "DISABLE",
+  "REBUILD",
+  "REORGANIZE",
+]);
+const KW_LOGICAL = new Set([
+  "AND",
+  "OR",
+  "NOT",
+  "IN",
+  "EXISTS",
+  "ANY",
+  "ALL",
+  "SOME",
+  "BETWEEN",
+  "LIKE",
+  "ILIKE",
+  "IS",
+  "NULL",
+  "CASE",
+  "WHEN",
+  "THEN",
+  "ELSE",
+  "END",
+  "IF",
+  "COALESCE",
+  "NULLIF",
+  "IIF",
+  "DECODE",
+  "NVL",
+]);
+const KW_TCL = new Set([
+  "BEGIN",
+  "COMMIT",
+  "ROLLBACK",
+  "TRANSACTION",
+  "SAVEPOINT",
+  "RELEASE",
+  "GRANT",
+  "REVOKE",
+  "DENY",
+]);
+const KW_WINDOW = new Set([
+  "OVER",
+  "PARTITION",
+  "WINDOW",
+  "UNBOUNDED",
+  "PRECEDING",
+  "FOLLOWING",
+  "RANGE",
+  "CURRENT",
+  "ROW",
+  "ROWS",
+  "RANK",
+  "DENSE_RANK",
+  "ROW_NUMBER",
+  "NTILE",
+  "PERCENT_RANK",
+  "CUME_DIST",
+  "LEAD",
+  "LAG",
+  "FIRST_VALUE",
+  "LAST_VALUE",
+  "NTH_VALUE",
+]);
+const KW_FUNC = new Set([
+  "COUNT",
+  "SUM",
+  "AVG",
+  "MIN",
+  "MAX",
+  "STDDEV",
+  "VARIANCE",
+  "GROUP_CONCAT",
+  "STRING_AGG",
+  "ARRAY_AGG",
+  "JSON_AGG",
+  "LISTAGG",
+  "CAST",
+  "CONVERT",
+  "TRY_CAST",
+  "TRY_CONVERT",
+  "PARSE",
+  "CONCAT",
+  "CONCAT_WS",
+  "SUBSTRING",
+  "SUBSTR",
+  "TRIM",
+  "LTRIM",
+  "RTRIM",
+  "UPPER",
+  "LOWER",
+  "LENGTH",
+  "LEN",
+  "REPLACE",
+  "STUFF",
+  "CHARINDEX",
+  "PATINDEX",
+  "INSTR",
+  "POSITION",
+  "FORMAT",
+  "REVERSE",
+  "ASCII",
+  "CHAR",
+  "UNICODE",
+  "NCHAR",
+  "STRING_SPLIT",
+  "DATE",
+  "DATETIME",
+  "EXTRACT",
+  "DATEPART",
+  "DATENAME",
+  "DATEADD",
+  "DATEDIFF",
+  "GETDATE",
+  "GETUTCDATE",
+  "NOW",
+  "SYSDATE",
+  "CURRENT_DATE",
+  "CURRENT_TIME",
+  "CURRENT_TIMESTAMP",
+  "YEAR",
+  "MONTH",
+  "DAY",
+  "HOUR",
+  "MINUTE",
+  "SECOND",
+  "ABS",
+  "CEILING",
+  "FLOOR",
+  "ROUND",
+  "POWER",
+  "SQRT",
+  "EXP",
+  "LOG",
+  "SIGN",
+  "RAND",
+  "ISNULL",
+  "IFNULL",
+  "NULLIF",
+  "COALESCE",
+  "JSON_VALUE",
+  "JSON_QUERY",
+  "JSON_OBJECT",
+  "OPENJSON",
+]);
+const KW_TYPE = new Set([
+  "INT",
+  "INTEGER",
+  "BIGINT",
+  "SMALLINT",
+  "TINYINT",
+  "BIT",
+  "BOOLEAN",
+  "DECIMAL",
+  "NUMERIC",
+  "FLOAT",
+  "REAL",
+  "MONEY",
+  "CHAR",
+  "VARCHAR",
+  "NCHAR",
+  "NVARCHAR",
+  "TEXT",
+  "NTEXT",
+  "BINARY",
+  "VARBINARY",
+  "IMAGE",
+  "BLOB",
+  "CLOB",
+  "TIMESTAMP",
+  "INTERVAL",
+  "XML",
+  "JSON",
+  "UNIQUEIDENTIFIER",
+  "UUID",
+  "GUID",
+  "CURSOR",
+  "ROWVERSION",
+  "SQL_VARIANT",
+  "GEOMETRY",
+  "GEOGRAPHY",
+]);
+
+function getKeywordClass(word) {
+  const u = word.toUpperCase();
+  if (KW_DML.has(u)) return "text-blue-500 dark:text-blue-400 font-bold";
+  if (KW_CLAUSE.has(u)) return "text-violet-500 dark:text-violet-400 font-bold";
+  if (KW_DDL.has(u)) return "text-rose-500 dark:text-rose-400 font-bold";
+  if (KW_LOGICAL.has(u)) return "text-amber-500 dark:text-amber-400 font-bold";
+  if (KW_TCL.has(u)) return "text-pink-500 dark:text-pink-400 font-bold";
+  if (KW_WINDOW.has(u)) return "text-cyan-500 dark:text-cyan-400 font-bold";
+  if (KW_FUNC.has(u)) return "text-emerald-500 dark:text-emerald-400 font-bold";
+  if (KW_TYPE.has(u)) return "text-orange-400 dark:text-orange-300 font-bold";
+  return null;
 }
 
 function tokenizeLine(line) {
   const re =
-    /--.*$|\/\*[\s\S]*?\*\/|'[^']*'|"[^"]*"|\b(\d+(?:\.\d+)?)\b|\b([A-Z_][A-Z0-9_]*)\b|\S/gi;
+    /--.*$|\/\*[\s\S]*?\*\/|'[^']*'|"[^"]*"|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_][A-Za-z0-9_]*)\b|./g;
   const tokens = [];
   let lastIndex = 0;
   let match;
@@ -299,13 +841,13 @@ function tokenizeLine(line) {
     const val = match[0];
     if (val.startsWith("--") || val.startsWith("/*")) {
       tokens.push(
-        <span key={key++} className="text-muted-foreground italic">
+        <span key={key++} className="text-slate-400 dark:text-slate-500 italic">
           {val}
         </span>,
       );
     } else if (val.startsWith("'") || val.startsWith('"')) {
       tokens.push(
-        <span key={key++} className="text-green-500 dark:text-green-400">
+        <span key={key++} className="text-green-600 dark:text-green-400">
           {val}
         </span>,
       );
@@ -315,20 +857,27 @@ function tokenizeLine(line) {
           {val}
         </span>,
       );
-    } else if (
-      match[2] !== undefined &&
-      SQL_KEYWORDS.includes(val.toUpperCase())
-    ) {
+    } else if (match[2] !== undefined) {
+      const cls = getKeywordClass(val);
+      if (cls) {
+        tokens.push(
+          <span key={key++} className={cls}>
+            {val}
+          </span>,
+        );
+      } else {
+        tokens.push(
+          <span key={key++} className="text-foreground">
+            {val}
+          </span>,
+        );
+      }
+    } else {
       tokens.push(
-        <span
-          key={key++}
-          className="text-blue-500 dark:text-blue-400 font-bold"
-        >
+        <span key={key++} className="text-muted-foreground">
           {val}
         </span>,
       );
-    } else {
-      tokens.push(<span key={key++}>{val}</span>);
     }
     lastIndex = re.lastIndex;
   }
@@ -341,23 +890,26 @@ export default function SqlFormatter() {
   const initialState = getState();
   const [input, setInput] = useState(initialState.input);
   const [output, setOutput] = useState(initialState.output);
-  const [dialect, setDialect] = useState("Standard SQL");
+  const [dialect, setDialect] = useState("MSSQL");
   const [indentSize, setIndentSize] = useState(2);
   const [keyCase, setKeyCase] = useState("UPPERCASE");
   const [commaPos, setCommaPos] = useState("end");
   const [wrap, setWrap] = useState(true);
-  const [lineNums, setLineNums] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState(getHistory);
   const [copied, setCopied] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
   const fileInputRef = useRef(null);
+
+  // Memoize highlighted output — expensive for large SQL, only recompute when output changes
+  const highlightedOutput = useMemo(() => highlightSQL(output), [output]);
 
   useEffect(() => {
     setState({ input, output });
   }, [input, output]);
 
-  const formatSqlText = (text) => {
+  const formatSqlText = useCallback((text) => {
     if (!text.trim()) {
       setOutput("");
       return;
@@ -369,9 +921,10 @@ export default function SqlFormatter() {
       dialect,
     });
     setOutput(formatted);
+    setAnimKey((k) => k + 1);
     saveHistory(text, formatted);
     setHistory(getHistory());
-  };
+  }, [indentSize, keyCase, commaPos, dialect]);
 
   const handleFormat = () => {
     if (!input.trim()) return;
@@ -410,6 +963,34 @@ export default function SqlFormatter() {
       .replace(/\s+/g, " ")
       .trim();
     setOutput(minified);
+  };
+
+  const handleRemoveComments = () => {
+    if (!input.trim()) return;
+    const re =
+      /(--[^\n]*)|(\/\*[\s\S]*?\*\/)|('(?:''|[^'])*')|("(?:""|[^"])*")|(`(?:[^`])*`)|(\[[^\]]*\])/g;
+    const result = input.replace(re, (m, lineComment, blockComment) => {
+      if (lineComment) return "";
+      if (blockComment) return " ";
+      return m;
+    });
+    const cleaned = result
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+\n/g, "\n")
+      .trim();
+    const hadOutput = !!output;
+    setInput(cleaned);
+    if (hadOutput) {
+      const formatted = formatSQL(cleaned, {
+        indentSize,
+        keyCase,
+        commaPos,
+        dialect,
+      });
+      setOutput(formatted);
+      saveHistory(cleaned, formatted);
+      setHistory(getHistory());
+    }
   };
 
   const handleCopy = async () => {
@@ -470,11 +1051,11 @@ export default function SqlFormatter() {
             className="px-2 py-1.5 text-xs rounded-md border border-border bg-background hover:bg-accent transition-colors focus:outline-none"
           >
             {[
-              "Standard SQL",
+              "MSSQL",
               "MySQL",
+              "Standard SQL",
               "PostgreSQL",
               "SQLite",
-              "MSSQL",
               "Oracle",
             ].map((d) => (
               <option key={d}>{d}</option>
@@ -537,6 +1118,13 @@ export default function SqlFormatter() {
             className="px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
           >
             Minify
+          </button>
+
+          <button
+            onClick={handleRemoveComments}
+            className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
+          >
+            Remove Comments
           </button>
         </div>
 
@@ -615,7 +1203,7 @@ export default function SqlFormatter() {
               if (e.ctrlKey && e.key === "Enter") handleFormat();
             }}
             placeholder='Paste SQL here or click "Sample" to load an example...'
-            className="w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
+            className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50 transition-colors"
           />
         </div>
 
@@ -630,12 +1218,6 @@ export default function SqlFormatter() {
               )}
             </div>
             <div className="tool-panel-actions">
-              <button
-                onClick={() => setLineNums((l) => !l)}
-                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
-              >
-                {lineNums ? "Hide #" : "Line #"}
-              </button>
               <button
                 onClick={() => setWrap((w) => !w)}
                 className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
@@ -678,34 +1260,40 @@ export default function SqlFormatter() {
               </button>
             </div>
           </div>
-          <div
+          <pre
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.ctrlKey && e.key === "a") {
+                e.preventDefault();
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(e.currentTarget);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+              if (
+                e.ctrlKey &&
+                e.key === "c" &&
+                window.getSelection()?.toString()
+              ) {
+                navigator.clipboard.writeText(window.getSelection().toString());
+                addToast({ title: "Copied!", type: "success" });
+              }
+            }}
+            key={animKey}
             className={cn(
-              "w-full min-h-[320px] sm:min-h-[420px] rounded-lg border border-border bg-card font-mono text-sm overflow-auto flex",
-              wrap ? "" : "overflow-x-auto",
+              "w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm overflow-auto select-text cursor-text outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50 transition-colors",
+              wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre",
             )}
           >
-            {lineNums && output && (
-              <div className="text-muted-foreground/50 text-right pr-3 pl-3 pt-4 select-none border-r border-border">
-                {outputLines.map((_, i) => (
-                  <div key={i}>{i + 1}</div>
-                ))}
-              </div>
+            {output ? (
+              highlightedOutput
+            ) : (
+              <span className="text-muted-foreground">
+                Formatted output will appear here...
+              </span>
             )}
-            <div
-              className={cn(
-                "p-4 flex-1",
-                wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre",
-              )}
-            >
-              {output ? (
-                highlightSQL(output)
-              ) : (
-                <span className="text-muted-foreground">
-                  Formatted output will appear here...
-                </span>
-              )}
-            </div>
-          </div>
+          </pre>
         </div>
       </div>
 
@@ -780,7 +1368,7 @@ export default function SqlFormatter() {
           </div>
           <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 font-mono text-sm whitespace-pre-wrap">
             {output ? (
-              highlightSQL(output)
+              highlightedOutput
             ) : (
               <span className="text-muted-foreground">No output yet.</span>
             )}

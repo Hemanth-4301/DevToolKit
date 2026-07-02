@@ -495,7 +495,7 @@ function LiveJsonPreview({ devMode }) {
           json-formatter.js
         </span>
       </div>
-      <div className="grid grid-cols-2 divide-x divide-border">
+      <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-border">
         <div className="p-4">
           <div
             className={cn(

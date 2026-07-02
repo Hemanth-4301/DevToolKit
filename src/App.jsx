@@ -6,6 +6,7 @@ import SqlFormatter from "./pages/SqlFormatter";
 import Base64Converter from "./pages/Base64Converter";
 import StringifyConverter from "./pages/StringifyConverter";
 import DiffChecker from "./pages/DiffChecker";
+import JwtDecoder from "./pages/JwtDecoder";
 import { ToastContainer } from "./components/Toast";
 
 export default function App() {
@@ -73,6 +74,10 @@ export default function App() {
 
         <section className={activeTab === "stringify" ? "block" : "hidden"}>
           <StringifyConverter />
+        </section>
+
+        <section className={activeTab === "jwt" ? "block" : "hidden"}>
+          <JwtDecoder />
         </section>
       </main>
       <ToastContainer />

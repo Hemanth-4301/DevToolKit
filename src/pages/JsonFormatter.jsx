@@ -77,58 +77,48 @@ function setState(state) {
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
 }
 
-function highlightJson(jsonStr) {
+function highlightJsonLine(line, key) {
   const tokens = [];
   const re =
     /("(?:[^"\\]|\\.)*")\s*:|"(?:[^"\\]|\\.)*"|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|true|false|null|[{}[\],]/g;
   let lastIndex = 0;
   let match;
-  let key = 0;
-  while ((match = re.exec(jsonStr)) !== null) {
-    if (match.index > lastIndex) {
-      tokens.push(
-        <span key={key++}>{jsonStr.slice(lastIndex, match.index)}</span>,
-      );
-    }
+  let k = 0;
+  while ((match = re.exec(line)) !== null) {
+    if (match.index > lastIndex)
+      tokens.push(<span key={k++}>{line.slice(lastIndex, match.index)}</span>);
     const val = match[0];
-    if (val.endsWith(":")) {
-      tokens.push(
-        <span key={key++} className="text-blue-600 dark:text-blue-400">
-          {val}
-        </span>,
-      );
-    } else if (val.startsWith('"')) {
-      tokens.push(
-        <span key={key++} className="text-green-500 dark:text-green-400">
-          {val}
-        </span>,
-      );
-    } else if (match[2] !== undefined) {
-      tokens.push(
-        <span key={key++} className="text-orange-500 dark:text-orange-400">
-          {val}
-        </span>,
-      );
-    } else if (val === "true" || val === "false") {
-      tokens.push(
-        <span key={key++} className="text-purple-500 dark:text-purple-400">
-          {val}
-        </span>,
-      );
-    } else if (val === "null") {
-      tokens.push(
-        <span key={key++} className="text-red-500 dark:text-red-400">
-          {val}
-        </span>,
-      );
-    } else {
-      tokens.push(<span key={key++}>{val}</span>);
-    }
+    if (val.endsWith(":"))
+      tokens.push(<span key={k++} className="text-blue-600 dark:text-blue-400">{val}</span>);
+    else if (val.startsWith('"'))
+      tokens.push(<span key={k++} className="text-green-500 dark:text-green-400">{val}</span>);
+    else if (match[2] !== undefined)
+      tokens.push(<span key={k++} className="text-orange-500 dark:text-orange-400">{val}</span>);
+    else if (val === "true" || val === "false")
+      tokens.push(<span key={k++} className="text-purple-500 dark:text-purple-400">{val}</span>);
+    else if (val === "null")
+      tokens.push(<span key={k++} className="text-red-500 dark:text-red-400">{val}</span>);
+    else
+      tokens.push(<span key={k++}>{val}</span>);
     lastIndex = re.lastIndex;
   }
-  if (lastIndex < jsonStr.length)
-    tokens.push(<span key={key++}>{jsonStr.slice(lastIndex)}</span>);
+  if (lastIndex < line.length)
+    tokens.push(<span key={k++}>{line.slice(lastIndex)}</span>);
   return tokens;
+}
+
+function highlightJson(jsonStr) {
+  const lines = jsonStr.split("\n");
+  return lines.map((line, li) => (
+    <span
+      key={li}
+      className="output-line"
+      style={{ "--line-delay": `${Math.min(li, 40) * 0.018}s` }}
+    >
+      {highlightJsonLine(line, li)}
+      {li < lines.length - 1 ? "\n" : ""}
+    </span>
+  ));
 }
 
 function repairJson(str) {
@@ -152,6 +142,135 @@ function sortKeysDeep(obj) {
   return obj;
 }
 
+function searchJson(obj, query, mode, path = "") {
+  const results = [];
+  const q = query.toLowerCase();
+
+  if (Array.isArray(obj)) {
+    obj.forEach((item, i) => {
+      const itemPath = `${path}[${i}]`;
+      if (item !== null && typeof item === "object") {
+        results.push(...searchJson(item, query, mode, itemPath));
+      } else {
+        // primitive inside array — check as value
+        const valStr = String(item);
+        const valMatch =
+          (mode === "value" || mode === "both") &&
+          valStr.toLowerCase().includes(q);
+        if (valMatch) {
+          results.push({
+            path: itemPath,
+            key: String(i),
+            value: valStr,
+            matchedKey: false,
+            matchedValue: true,
+          });
+        }
+      }
+    });
+  } else if (obj !== null && typeof obj === "object") {
+    Object.entries(obj).forEach(([k, v]) => {
+      const keyPath = path ? `${path}.${k}` : k;
+      const keyMatch =
+        (mode === "key" || mode === "both") && k.toLowerCase().includes(q);
+
+      if (v !== null && typeof v === "object") {
+        // container — check key match for the container itself, then recurse
+        if (keyMatch) {
+          results.push({
+            path: keyPath,
+            key: k,
+            value: Array.isArray(v) ? "[array]" : "[object]",
+            matchedKey: true,
+            matchedValue: false,
+          });
+        }
+        results.push(...searchJson(v, query, mode, keyPath));
+      } else {
+        // primitive value
+        const valStr = v === null ? "null" : String(v);
+        const valMatch =
+          (mode === "value" || mode === "both") &&
+          valStr.toLowerCase().includes(q);
+        if (keyMatch || valMatch) {
+          results.push({
+            path: keyPath,
+            key: k,
+            value: valStr,
+            matchedKey: keyMatch,
+            matchedValue: valMatch,
+          });
+        }
+      }
+    });
+  }
+  return results;
+}
+
+function highlightJsonToHtml(jsonStr) {
+  const re =
+    /("(?:[^"\\]|\\.)*")\s*:|"(?:[^"\\]|\\.)*"|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|true|false|null|[{}[\],]/g;
+  const esc = (s) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  let result = "";
+  let lastIndex = 0;
+  let match;
+  while ((match = re.exec(jsonStr)) !== null) {
+    if (match.index > lastIndex)
+      result += esc(jsonStr.slice(lastIndex, match.index));
+    const val = match[0];
+    if (val.endsWith(":"))
+      result += `<span class="text-blue-600 dark:text-blue-400">${esc(val)}</span>`;
+    else if (val.startsWith('"'))
+      result += `<span class="text-green-500 dark:text-green-400">${esc(val)}</span>`;
+    else if (match[2] !== undefined)
+      result += `<span class="text-orange-500 dark:text-orange-400">${esc(val)}</span>`;
+    else if (val === "true" || val === "false")
+      result += `<span class="text-purple-500 dark:text-purple-400">${esc(val)}</span>`;
+    else if (val === "null")
+      result += `<span class="text-red-500 dark:text-red-400">${esc(val)}</span>`;
+    else
+      result += esc(val);
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < jsonStr.length) result += esc(jsonStr.slice(lastIndex));
+  return result;
+}
+
+function RawHighlightPane({ output, setOutput, wrap }) {
+  const preRef = useRef(null);
+
+  useEffect(() => {
+    if (preRef.current) {
+      preRef.current.innerHTML = highlightJsonToHtml(output);
+    }
+  }, [output]);
+
+  return (
+    <pre
+      ref={preRef}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      onBlur={(e) => setOutput(e.currentTarget.innerText)}
+      onKeyDown={(e) => {
+        if (e.ctrlKey && e.key === "a") {
+          e.preventDefault();
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(e.currentTarget);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }}
+      className={cn(
+        "panel-animate w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 bg-transparent font-mono text-sm focus:outline-none overflow-auto",
+        wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre overflow-x-auto",
+      )}
+    />
+  );
+}
+
 export default function JsonFormatter() {
   const initialState = getState();
   const [input, setInput] = useState(initialState.input);
@@ -166,6 +285,9 @@ export default function JsonFormatter() {
   const [copied, setCopied] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState("tree"); // "tree" | "raw"
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState("both");
+  const [animKey, setAnimKey] = useState(0);
   const fileInputRef = useRef(null);
 
   const parsedOutput = useMemo(() => {
@@ -180,23 +302,34 @@ export default function JsonFormatter() {
   const outputIsObjectLike =
     parsedOutput !== null && typeof parsedOutput === "object";
 
+  // Memoize search — avoids re-walking large JSON trees on every render
+  const searchResults = useMemo(() => {
+    if (!parsedOutput || !searchQuery.trim()) return [];
+    return searchJson(parsedOutput, searchQuery.trim(), searchMode);
+  }, [parsedOutput, searchQuery, searchMode]);
+
   useEffect(() => {
     setState({ input, output });
   }, [input, output]);
 
+  const validateTimerRef = useRef(null);
+
   const validateInput = useCallback(
     (val) => {
+      clearTimeout(validateTimerRef.current);
       if (!val.trim()) {
         setError(null);
         return;
       }
-      try {
-        const toparse = repairMode ? repairJson(val) : val;
-        JSON.parse(toparse);
-        setError(null);
-      } catch (e) {
-        setError(e.message);
-      }
+      // Debounce validation — avoids parsing huge JSON on every keystroke
+      validateTimerRef.current = setTimeout(() => {
+        try {
+          JSON.parse(repairMode ? repairJson(val) : val);
+          setError(null);
+        } catch (e) {
+          setError(e.message);
+        }
+      }, 300);
     },
     [repairMode],
   );
@@ -221,6 +354,7 @@ export default function JsonFormatter() {
         const indentVal = indent === "tab" ? "\t" : indent;
         const formatted = JSON.stringify(parsed, null, indentVal);
         setOutput(formatted);
+        setAnimKey((k) => k + 1);
         setError(null);
         saveHistory(text, formatted);
         setHistory(getHistory());
@@ -362,6 +496,78 @@ export default function JsonFormatter() {
         </button>
       </div>
 
+      {parsedOutput && (
+        <div className="mb-4 rounded-lg border border-border bg-card p-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search keys or values..."
+              className="flex-1 px-3 py-1.5 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring/30"
+            />
+            <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+              {["key", "value", "both"].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSearchMode(m)}
+                  className={cn(
+                    "px-2.5 py-1.5 text-xs font-medium transition-colors capitalize",
+                    searchMode === m
+                      ? "bg-foreground text-background"
+                      : "hover:bg-accent text-muted-foreground",
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          {searchQuery.trim() &&
+            (() => {
+              const results = searchResults;
+              return (
+                <div className="mt-2">
+                  {results.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No matches found.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {results.length} match{results.length !== 1 ? "es" : ""}{" "}
+                        found
+                      </p>
+                      {results.map((r, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-2 text-xs font-mono p-1.5 rounded hover:bg-accent/50"
+                        >
+                          <span className="text-blue-400 shrink-0">
+                            {r.path}
+                          </span>
+                          <span className="text-muted-foreground">→</span>
+                          <span
+                            className={cn(
+                              r.matchedValue
+                                ? "text-green-400"
+                                : "text-foreground",
+                            )}
+                          >
+                            {r.value.length > 80
+                              ? r.value.slice(0, 80) + "…"
+                              : r.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+        </div>
+      )}
+
       <div className="tool-grid">
         <div className="tool-panel">
           <div className="tool-panel-header">
@@ -428,12 +634,10 @@ export default function JsonFormatter() {
             }}
             placeholder='Paste JSON here or click "Sample" to load an example...'
             className={cn(
-              "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
+              "w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1",
               inputInvalid
-                ? "border-red-500/50 focus:ring-red-500/30"
-                : inputValid
-                  ? "border-green-500/50 focus:ring-green-500/30"
-                  : "border-border focus:ring-ring/30",
+                ? "border-red-500/50 focus:ring-red-500/30 focus:border-red-500/50"
+                : "border-border focus:ring-ring/30 focus:border-ring/50",
             )}
           />
           {error && (
@@ -526,17 +730,38 @@ export default function JsonFormatter() {
             </div>
           </div>
           <div
+            key={animKey}
+            tabIndex={
+              output && viewMode === "tree" && outputIsObjectLike ? 0 : -1
+            }
+            onKeyDown={(e) => {
+              if (!(output && viewMode === "tree" && outputIsObjectLike))
+                return;
+              if (e.ctrlKey && e.key === "a") {
+                e.preventDefault();
+                // Select all visible text in the tree div
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(e.currentTarget);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+              if (e.ctrlKey && e.key === "c") {
+                e.preventDefault();
+                // Always copy the full JSON — tree may have collapsed nodes
+                navigator.clipboard.writeText(output);
+                addToast({ title: "Copied!", type: "success" });
+              }
+            }}
             className={cn(
-              "w-full min-h-[320px] sm:min-h-[420px] p-3 sm:p-4 sm:pl-6 rounded-lg border border-border bg-card font-mono text-sm overflow-auto",
-              viewMode === "raw" && wrap
-                ? "whitespace-pre-wrap break-all"
-                : viewMode === "raw"
-                  ? "whitespace-pre overflow-x-auto"
-                  : "",
+              "w-full min-h-[240px] sm:min-h-[420px] rounded-lg border border-border bg-card font-mono text-sm transition-colors focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50",
+              output && (viewMode === "raw" || !outputIsObjectLike)
+                ? "flex"
+                : "overflow-auto p-3 sm:p-4 sm:pl-6",
             )}
           >
             {!output && (
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground p-3 sm:p-4">
                 Formatted output will appear here...
               </span>
             )}
@@ -544,7 +769,11 @@ export default function JsonFormatter() {
               <JsonTree data={parsedOutput} defaultCollapsed={1} />
             )}
             {output && (viewMode === "raw" || !outputIsObjectLike) && (
-              <code>{highlightJson(output)}</code>
+              <RawHighlightPane
+                output={output}
+                setOutput={setOutput}
+                wrap={wrap}
+              />
             )}
           </div>
         </div>
@@ -622,6 +851,77 @@ export default function JsonFormatter() {
               <Maximize2 className="h-4 w-4" />
             </button>
           </div>
+          {parsedOutput && (
+            <div className="mb-3 rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search keys or values..."
+                  className="flex-1 px-3 py-1.5 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring/30"
+                />
+                <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+                  {["key", "value", "both"].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSearchMode(m)}
+                      className={cn(
+                        "px-2.5 py-1.5 text-xs font-medium transition-colors capitalize",
+                        searchMode === m
+                          ? "bg-foreground text-background"
+                          : "hover:bg-accent text-muted-foreground",
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {searchQuery.trim() &&
+                (() => {
+                  const results = searchResults;
+                  return (
+                    <div className="mt-2">
+                      {results.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No matches found.
+                        </p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {results.length} match
+                            {results.length !== 1 ? "es" : ""} found
+                          </p>
+                          {results.map((r, i) => (
+                            <div
+                              key={i}
+                              className="flex items-start gap-2 text-xs font-mono p-1.5 rounded hover:bg-accent/50"
+                            >
+                              <span className="text-blue-400 shrink-0">
+                                {r.path}
+                              </span>
+                              <span className="text-muted-foreground">→</span>
+                              <span
+                                className={cn(
+                                  r.matchedValue
+                                    ? "text-green-400"
+                                    : "text-foreground",
+                                )}
+                              >
+                                {r.value.length > 80
+                                  ? r.value.slice(0, 80) + "…"
+                                  : r.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+            </div>
+          )}
           <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 pl-6 font-mono text-sm">
             {!output && (
               <span className="text-muted-foreground">No output yet.</span>

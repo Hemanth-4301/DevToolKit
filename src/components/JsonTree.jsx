@@ -178,7 +178,7 @@ function JsonNode({ keyName, value, depth, isLast, defaultCollapsed }) {
 
 const JsonTree = memo(function JsonTree({ data, defaultCollapsed = 999 }) {
   return (
-    <div className="font-mono text-sm text-nowrap">
+    <div className="font-mono text-sm text-nowrap panel-animate">
       <JsonNode
         value={data}
         depth={0}

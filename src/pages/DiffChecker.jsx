@@ -901,6 +901,11 @@ export default function DiffChecker({ isActive = true }) {
           </div>
 
           <div className="rounded-lg border border-border bg-card overflow-auto">
+            {viewMode === "side" && (
+              <div className="sm:hidden px-4 py-2 text-xs text-muted-foreground bg-muted/20 border-b border-border">
+                Tip: Switch to Unified view for better mobile experience.
+              </div>
+            )}
             <div className="flex items-center border-b border-border px-4 py-2 bg-muted/30 text-xs font-medium">
               {viewMode === "side" ? (
                 <>
