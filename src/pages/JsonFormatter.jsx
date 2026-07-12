@@ -21,6 +21,11 @@ import JsonTree from "../components/JsonTree";
 
 const HISTORY_KEY = "devtoolkit_json_history";
 const STATE_KEY = "devtoolkit_json_state";
+// Above this size, skip syntax highlighting / eager tree mounting and
+// localStorage persistence — those are what actually freeze the tab on
+// huge pastes. Plain text stays fully usable (copy/download/browser find).
+const LARGE_JSON_THRESHOLD = 1_000_000; // ~1MB of text
+const PERSIST_MAX_SIZE = 2_000_000; // don't localStorage.setItem huge blobs
 const SAMPLE_JSON = JSON.stringify(
   {
     name: "DevToolkit",
@@ -52,6 +57,10 @@ function getHistory() {
   }
 }
 function saveHistory(input, output) {
+  // Skip persisting huge payloads — stringifying + storing multi-MB blobs
+  // on every format is itself a perf hit, and can throw QuotaExceededError.
+  if (input.length > PERSIST_MAX_SIZE || output.length > PERSIST_MAX_SIZE)
+    return;
   const history = getHistory();
   const entry = {
     timestamp: Date.now(),
@@ -60,7 +69,11 @@ function saveHistory(input, output) {
     output,
   };
   const updated = [entry, ...history].slice(0, 10);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+  } catch {
+    // storage quota exceeded — history is best-effort, not critical
+  }
 }
 
 function getState() {
@@ -74,7 +87,17 @@ function getState() {
 }
 
 function setState(state) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  // Same guard as saveHistory — never persist huge blobs on every keystroke.
+  if (
+    state.input.length > PERSIST_MAX_SIZE ||
+    state.output.length > PERSIST_MAX_SIZE
+  )
+    return;
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  } catch {
+    // storage quota exceeded — non-critical, state just won't persist
+  }
 }
 
 function highlightJsonLine(line, key) {
@@ -271,6 +294,35 @@ function RawHighlightPane({ output, setOutput, wrap }) {
   );
 }
 
+// Plain, unhighlighted text view for very large output. Syntax highlighting
+// tokenizes and wraps every value in its own element — fine for normal
+// output, but for megabyte-scale JSON that's tens of thousands of DOM
+// nodes built synchronously, which is what actually freezes the tab.
+// A plain <textarea> has none of that cost and stays fully usable
+// (scrollable, editable, copyable, searchable via the browser's find).
+function PlainTextPane({ output, setOutput, wrap }) {
+  return (
+    <div className="w-full min-h-[240px] sm:min-h-[420px] flex flex-col">
+      <div className="flex items-start gap-2 px-3 sm:px-4 pt-2 text-xs text-amber-600 dark:text-amber-400">
+        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+        <span>
+          Output is large — syntax highlighting is disabled for performance.
+          Text is still fully editable and copyable.
+        </span>
+      </div>
+      <textarea
+        value={output}
+        onChange={(e) => setOutput(e.target.value)}
+        spellCheck={false}
+        className={cn(
+          "flex-1 w-full p-3 sm:p-4 bg-transparent font-mono text-sm focus:outline-none resize-none",
+          wrap ? "whitespace-pre-wrap break-all" : "whitespace-pre overflow-x-auto",
+        )}
+      />
+    </div>
+  );
+}
+
 export default function JsonFormatter() {
   const initialState = getState();
   const [input, setInput] = useState(initialState.input);
@@ -288,6 +340,7 @@ export default function JsonFormatter() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState("both");
   const [animKey, setAnimKey] = useState(0);
+  const [isFormatting, setIsFormatting] = useState(false);
   const fileInputRef = useRef(null);
 
   const parsedOutput = useMemo(() => {
@@ -301,12 +354,13 @@ export default function JsonFormatter() {
 
   const outputIsObjectLike =
     parsedOutput !== null && typeof parsedOutput === "object";
+  const isLargeOutput = output.length > LARGE_JSON_THRESHOLD;
 
   // Memoize search — avoids re-walking large JSON trees on every render
   const searchResults = useMemo(() => {
-    if (!parsedOutput || !searchQuery.trim()) return [];
+    if (!parsedOutput || !searchQuery.trim() || isLargeOutput) return [];
     return searchJson(parsedOutput, searchQuery.trim(), searchMode);
-  }, [parsedOutput, searchQuery, searchMode]);
+  }, [parsedOutput, searchQuery, searchMode, isLargeOutput]);
 
   useEffect(() => {
     setState({ input, output });
@@ -347,20 +401,35 @@ export default function JsonFormatter() {
         setError(null);
         return;
       }
-      try {
-        const toparse = repairMode ? repairJson(text) : text;
-        let parsed = JSON.parse(toparse);
-        if (sortKeys) parsed = sortKeysDeep(parsed);
-        const indentVal = indent === "tab" ? "\t" : indent;
-        const formatted = JSON.stringify(parsed, null, indentVal);
-        setOutput(formatted);
-        setAnimKey((k) => k + 1);
-        setError(null);
-        saveHistory(text, formatted);
-        setHistory(getHistory());
-      } catch (e) {
-        setError(e.message);
-        setOutput("");
+      // For large input, defer the actual parse/stringify to the next
+      // frame so the browser can paint the "Formatting…" state first —
+      // otherwise a huge paste blocks the main thread with no feedback
+      // and the tab looks hung.
+      const run = () => {
+        try {
+          const toparse = repairMode ? repairJson(text) : text;
+          let parsed = JSON.parse(toparse);
+          if (sortKeys) parsed = sortKeysDeep(parsed);
+          const indentVal = indent === "tab" ? "\t" : indent;
+          const formatted = JSON.stringify(parsed, null, indentVal);
+          setOutput(formatted);
+          setAnimKey((k) => k + 1);
+          setError(null);
+          saveHistory(text, formatted);
+          setHistory(getHistory());
+        } catch (e) {
+          setError(e.message);
+          setOutput("");
+        } finally {
+          setIsFormatting(false);
+        }
+      };
+
+      if (text.length > LARGE_JSON_THRESHOLD) {
+        setIsFormatting(true);
+        setTimeout(run, 0);
+      } else {
+        run();
       }
     },
     [repairMode, sortKeys, indent],
@@ -490,13 +559,15 @@ export default function JsonFormatter() {
 
         <button
           onClick={handleFormat}
-          className="tool-toolbar-action px-4 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
+          disabled={isFormatting}
+          className="tool-toolbar-action px-4 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Format <span className="opacity-60 ml-1">Ctrl+Enter</span>
+          {isFormatting ? "Formatting…" : "Format"}{" "}
+          <span className="opacity-60 ml-1">Ctrl+Enter</span>
         </button>
       </div>
 
-      {parsedOutput && (
+      {parsedOutput && !isLargeOutput && (
         <div className="mb-4 rounded-lg border border-border bg-card p-3">
           <div className="flex items-center gap-2">
             <input
@@ -659,7 +730,7 @@ export default function JsonFormatter() {
               )}
             </div>
             <div className="tool-panel-actions">
-              {outputIsObjectLike && (
+              {outputIsObjectLike && !isLargeOutput && (
                 <div className="flex items-center border border-border rounded-md overflow-hidden mr-1">
                   <button
                     onClick={() => setViewMode("tree")}
@@ -755,26 +826,37 @@ export default function JsonFormatter() {
             }}
             className={cn(
               "w-full min-h-[240px] sm:min-h-[420px] rounded-lg border border-border bg-card font-mono text-sm transition-colors focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50",
-              output && (viewMode === "raw" || !outputIsObjectLike)
+              output &&
+                (isLargeOutput || viewMode === "raw" || !outputIsObjectLike)
                 ? "flex"
                 : "overflow-auto p-3 sm:p-4 sm:pl-6",
             )}
           >
-            {!output && (
+            {!output && !isFormatting && (
               <span className="text-muted-foreground p-3 sm:p-4">
                 Formatted output will appear here...
               </span>
             )}
-            {output && viewMode === "tree" && outputIsObjectLike && (
+            {isFormatting && (
+              <span className="text-muted-foreground p-3 sm:p-4">
+                Formatting large JSON…
+              </span>
+            )}
+            {output && isLargeOutput && (
+              <PlainTextPane output={output} setOutput={setOutput} wrap={wrap} />
+            )}
+            {output && !isLargeOutput && viewMode === "tree" && outputIsObjectLike && (
               <JsonTree data={parsedOutput} defaultCollapsed={1} />
             )}
-            {output && (viewMode === "raw" || !outputIsObjectLike) && (
-              <RawHighlightPane
-                output={output}
-                setOutput={setOutput}
-                wrap={wrap}
-              />
-            )}
+            {output &&
+              !isLargeOutput &&
+              (viewMode === "raw" || !outputIsObjectLike) && (
+                <RawHighlightPane
+                  output={output}
+                  setOutput={setOutput}
+                  wrap={wrap}
+                />
+              )}
           </div>
         </div>
       </div>
@@ -851,7 +933,7 @@ export default function JsonFormatter() {
               <Maximize2 className="h-4 w-4" />
             </button>
           </div>
-          {parsedOutput && (
+          {parsedOutput && !isLargeOutput && (
             <div className="mb-3 rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2">
                 <input
@@ -922,18 +1004,27 @@ export default function JsonFormatter() {
                 })()}
             </div>
           )}
-          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card p-4 pl-6 font-mono text-sm">
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card font-mono text-sm flex flex-col">
             {!output && (
-              <span className="text-muted-foreground">No output yet.</span>
+              <span className="text-muted-foreground p-4 pl-6">
+                No output yet.
+              </span>
             )}
-            {output && viewMode === "tree" && outputIsObjectLike && (
-              <JsonTree data={parsedOutput} defaultCollapsed={1} />
+            {output && isLargeOutput && (
+              <PlainTextPane output={output} setOutput={setOutput} wrap={wrap} />
             )}
-            {output && (viewMode === "raw" || !outputIsObjectLike) && (
-              <code className="whitespace-pre-wrap">
-                {highlightJson(output)}
-              </code>
+            {output && !isLargeOutput && viewMode === "tree" && outputIsObjectLike && (
+              <div className="p-4 pl-6">
+                <JsonTree data={parsedOutput} defaultCollapsed={1} />
+              </div>
             )}
+            {output &&
+              !isLargeOutput &&
+              (viewMode === "raw" || !outputIsObjectLike) && (
+                <code className="whitespace-pre-wrap p-4 pl-6">
+                  {highlightJson(output)}
+                </code>
+              )}
           </div>
         </div>
       )}

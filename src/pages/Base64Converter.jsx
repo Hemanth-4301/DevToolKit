@@ -180,37 +180,119 @@ function TextPreview({ blob }) {
     </pre>
   );
 }
+function argbToCss(rgb) {
+  if (!rgb || typeof rgb !== "string" || rgb.length < 6) return null;
+  const hex = rgb.length === 8 ? rgb.slice(2) : rgb;
+  return `#${hex}`;
+}
+
+function cellFillCss(style) {
+  if (!style || style.patternType !== "solid") return null;
+  return argbToCss(style.fgColor?.rgb);
+}
+
+const ROW_HEIGHT = 25;
+const OVERSCAN_ROWS = 20;
+
 function XlsxPreview({ blob, fullscreen = false }) {
   const [sheetName, setSheetName] = useState("");
-  const [headers, setHeaders] = useState([]);
-  const [rows, setRows] = useState([]);
+  const [grid, setGrid] = useState(null);
+  const [mergedRowCount, setMergedRowCount] = useState(0);
+  const [colWidths, setColWidths] = useState([]);
   const [error, setError] = useState("");
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(380);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
         const buffer = await blob.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0] || "";
-        const worksheet = workbook.Sheets[firstSheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-          raw: true,
+
+        // SheetJS tolerates the wide variety of nonstandard .xlsx produced
+        // by real-world tools (WPS Office, LibreOffice, etc.) far better
+        // than stricter parsers — it's the only reliable base here.
+        // cellStyles unlocks fill colors on cell.s for real header bands.
+        const sheetJsBook = XLSX.read(buffer, {
+          type: "array",
+          cellStyles: true,
         });
-        const safeData = Array.isArray(data) ? data : [];
-        const head = safeData[0] || [];
-        const body = safeData.slice(1, 101);
+        const firstSheetName = sheetJsBook.SheetNames[0] || "";
+        const sheet = sheetJsBook.Sheets[firstSheetName];
+        if (!sheet) throw new Error("No sheet found");
+
+        const ref = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]) : null;
+        const maxRow = ref ? ref.e.r : -1;
+        const maxCol = ref ? ref.e.c : -1;
+        const startRow = ref ? ref.s.r : 0;
+        const startCol = ref ? ref.s.c : 0;
+
+        const cellGrid = [];
+        for (let r = startRow; r <= maxRow; r++) {
+          const cellRow = [];
+          for (let c = startCol; c <= maxCol; c++) {
+            const cellRef = XLSX.utils.encode_cell({ r, c });
+            const cell = sheet[cellRef];
+            cellRow.push({
+              text: cell?.w ?? (cell?.v !== undefined ? String(cell.v) : ""),
+              isMergedAway: false,
+              rowSpan: 1,
+              colSpan: 1,
+              fill: cellFillCss(cell?.s),
+              align: typeof cell?.v === "number" ? "right" : null,
+            });
+          }
+          cellGrid.push(cellRow);
+        }
+
+        let lastMergedRow = -1;
+        (sheet["!merges"] || []).forEach((range) => {
+          if (
+            range.s.r < startRow ||
+            range.s.c < startCol ||
+            range.s.r > maxRow ||
+            range.s.c > maxCol
+          )
+            return;
+          const gridRow = cellGrid[range.s.r - startRow];
+          const masterCell = gridRow?.[range.s.c - startCol];
+          if (!masterCell) return;
+          masterCell.rowSpan = Math.min(range.e.r, maxRow) - range.s.r + 1;
+          masterCell.colSpan = Math.min(range.e.c, maxCol) - range.s.c + 1;
+          lastMergedRow = Math.max(
+            lastMergedRow,
+            Math.min(range.e.r, maxRow) - startRow,
+          );
+          for (let r = range.s.r; r <= Math.min(range.e.r, maxRow); r++) {
+            for (let c = range.s.c; c <= Math.min(range.e.c, maxCol); c++) {
+              if (r === range.s.r && c === range.s.c) continue;
+              const cell = cellGrid[r - startRow]?.[c - startCol];
+              if (cell) cell.isMergedAway = true;
+            }
+          }
+        });
+
+        const widths = [];
+        for (let c = startCol; c <= maxCol; c++) {
+          const colInfo = sheet["!cols"]?.[c];
+          const wch = colInfo?.wch || colInfo?.width;
+          widths.push(wch ? `${Math.max(wch * 7, 40)}px` : "80px");
+        }
 
         if (!cancelled) {
           setSheetName(firstSheetName);
-          setHeaders(head);
-          setRows(body);
+          setGrid(cellGrid);
+          setMergedRowCount(lastMergedRow + 1);
+          setColWidths(widths);
           setError("");
         }
       } catch (err) {
+        console.error("XlsxPreview error:", err);
         if (!cancelled) {
-          setError("Could not render this spreadsheet preview.");
+          setError(
+            `Could not render this spreadsheet preview. (${err?.message || err})`,
+          );
         }
       }
     };
@@ -220,6 +302,15 @@ function XlsxPreview({ blob, fullscreen = false }) {
       cancelled = true;
     };
   }, [blob]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setViewportHeight(el.clientHeight);
+    const onScroll = () => setScrollTop(el.scrollTop);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [grid, fullscreen]);
 
   if (error) {
     return (
@@ -233,55 +324,87 @@ function XlsxPreview({ blob, fullscreen = false }) {
     );
   }
 
+  const renderRow = (row, rIdx) => (
+    <tr key={rIdx}>
+      {row.map((cell, cIdx) => {
+        if (cell.isMergedAway) return null;
+        const isHeaderish = !!cell.fill || cell.colSpan > 1;
+        return (
+          <td
+            key={cIdx}
+            colSpan={cell.colSpan || 1}
+            rowSpan={cell.rowSpan || 1}
+            className="px-2 py-1 border border-slate-200 overflow-hidden text-ellipsis whitespace-nowrap"
+            style={{
+              height: ROW_HEIGHT,
+              backgroundColor: cell.fill || undefined,
+              textAlign: cell.colSpan > 1 ? "center" : cell.align || undefined,
+              verticalAlign: "middle",
+              fontWeight: isHeaderish ? 600 : undefined,
+            }}
+          >
+            {cell.text}
+          </td>
+        );
+      })}
+    </tr>
+  );
+
+  // Header/merged rows always render in full; the (usually much larger)
+  // plain data body below is windowed so a 3,000+ row sheet stays smooth —
+  // only rows near the scroll viewport are mounted, with spacer rows
+  // keeping scrollbar height/position correct.
+  const bodyRows = grid ? grid.slice(mergedRowCount) : [];
+  const firstVisible = Math.max(
+    0,
+    Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS,
+  );
+  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN_ROWS * 2;
+  const lastVisible = Math.min(bodyRows.length, firstVisible + visibleCount);
+  const topSpacerHeight = firstVisible * ROW_HEIGHT;
+  const bottomSpacerHeight = (bodyRows.length - lastVisible) * ROW_HEIGHT;
+  const colCount = colWidths.length || 1;
+
   return (
     <div
+      ref={scrollRef}
       className={cn(
         "w-full rounded-lg border border-border bg-card",
         fullscreen ? "h-full overflow-auto" : "max-h-[380px] overflow-auto",
       )}
     >
-      <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+      <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border sticky top-0 bg-card z-10">
         {sheetName ? `Sheet: ${sheetName}` : "Sheet preview"}
+        {grid ? ` · ${grid.length.toLocaleString()} rows` : ""}
       </div>
-      <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-muted/50">
-          <tr>
-            {(headers.length ? headers : ["A", "B", "C", "D", "E"])
-              .slice(0, 12)
-              .map((h, i) => (
-                <th
-                  key={i}
-                  className="text-left font-semibold px-2 py-1 border-b border-border"
-                >
-                  {String(h ?? "").trim() || `Col ${i + 1}`}
-                </th>
-              ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td className="px-2 py-2 text-muted-foreground" colSpan={12}>
-                No previewable rows found.
-              </td>
-            </tr>
-          )}
-          {rows.map((row, rIdx) => (
-            <tr key={rIdx} className="odd:bg-muted/20">
-              {Array.from({ length: Math.max(headers.length, row.length, 1) })
-                .slice(0, 12)
-                .map((_, cIdx) => (
-                  <td
-                    key={cIdx}
-                    className="px-2 py-1 border-b border-border/50"
-                  >
-                    {String(row[cIdx] ?? "")}
-                  </td>
-                ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {grid && (
+        <table
+          className="text-xs border-collapse bg-white text-slate-900"
+          style={{ tableLayout: "fixed" }}
+        >
+          <colgroup>
+            {colWidths.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+          <tbody>
+            {grid.slice(0, mergedRowCount).map(renderRow)}
+            {topSpacerHeight > 0 && (
+              <tr style={{ height: topSpacerHeight }} aria-hidden="true">
+                <td colSpan={colCount} style={{ padding: 0, border: "none" }} />
+              </tr>
+            )}
+            {bodyRows
+              .slice(firstVisible, lastVisible)
+              .map((row, i) => renderRow(row, mergedRowCount + firstVisible + i))}
+            {bottomSpacerHeight > 0 && (
+              <tr style={{ height: bottomSpacerHeight }} aria-hidden="true">
+                <td colSpan={colCount} style={{ padding: 0, border: "none" }} />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
