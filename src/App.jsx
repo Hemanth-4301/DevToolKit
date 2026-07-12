@@ -8,6 +8,7 @@ import StringifyConverter from "./pages/StringifyConverter";
 import DiffChecker from "./pages/DiffChecker";
 import JwtDecoder from "./pages/JwtDecoder";
 import { ToastContainer } from "./components/Toast";
+import GradientMesh from "./components/GradientMesh";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
@@ -42,9 +43,8 @@ export default function App() {
   }, [devMode]);
 
   return (
-    <div
-      className={`min-h-screen bg-background text-foreground scanline-overlay`}
-    >
+    <div className="min-h-screen bg-background text-foreground">
+      <GradientMesh active={devMode} />
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}

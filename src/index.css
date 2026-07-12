@@ -172,40 +172,193 @@
   --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.45);
 }
 
-/* ── DEVELOPER / HACKER MODE ── */
+/* ── DEV MODE (glassmorphic, monochrome) ── */
 .dev-mode {
-  --background: 120 100% 2%;
-  --foreground: 120 100% 70%;
-  --border: 120 80% 20%;
-  --card: 120 100% 4%;
-  --card-foreground: 120 100% 65%;
-  --card-border: 120 80% 18%;
-  --popover: 120 100% 3%;
-  --popover-foreground: 120 100% 70%;
-  --popover-border: 120 80% 20%;
-  --primary: 120 100% 55%;
-  --primary-foreground: 120 100% 3%;
-  --secondary: 120 100% 8%;
-  --secondary-foreground: 120 100% 70%;
-  --muted: 120 80% 8%;
-  --muted-foreground: 120 60% 50%;
-  --accent: 120 100% 10%;
-  --accent-foreground: 120 100% 75%;
-  --destructive: 0 80% 40%;
-  --destructive-foreground: 120 100% 90%;
-  --input: 120 80% 18%;
-  --ring: 120 100% 55%;
-  --sidebar: 120 100% 2%;
-  --sidebar-foreground: 120 100% 70%;
-  --sidebar-border: 120 80% 15%;
-  --sidebar-primary: 120 100% 55%;
-  --sidebar-primary-foreground: 120 100% 3%;
-  --sidebar-accent: 120 100% 8%;
-  --sidebar-accent-foreground: 120 100% 70%;
-  --sidebar-ring: 120 100% 55%;
+  --background: 220 20% 5%;
+  --foreground: 210 20% 97%;
+  --border: 220 14% 22%;
+  --card: 220 16% 9%;
+  --card-foreground: 210 20% 97%;
+  --card-border: 220 14% 20%;
+  --popover: 220 18% 8%;
+  --popover-foreground: 210 20% 97%;
+  --popover-border: 220 14% 20%;
+  --primary: 210 16% 88%;
+  --primary-foreground: 220 20% 8%;
+  --secondary: 220 14% 15%;
+  --secondary-foreground: 210 20% 97%;
+  --muted: 220 14% 13%;
+  --muted-foreground: 215 12% 65%;
+  --accent: 220 14% 16%;
+  --accent-foreground: 210 20% 97%;
+  --destructive: 350 70% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 220 14% 20%;
+  --ring: 210 16% 80%;
+  --sidebar: 220 20% 5%;
+  --sidebar-foreground: 210 20% 97%;
+  --sidebar-border: 220 14% 18%;
+  --sidebar-primary: 210 16% 85%;
+  --sidebar-primary-foreground: 220 20% 8%;
+  --sidebar-accent: 220 14% 15%;
+  --sidebar-accent-foreground: 210 20% 97%;
+  --sidebar-ring: 210 16% 80%;
 
-  --app-font-sans: 'Geist Mono', 'Fira Code', 'JetBrains Mono', Menlo, monospace;
-  --app-font-mono: 'Geist Mono', 'Fira Code', 'JetBrains Mono', Menlo, monospace;
+  --dev-slate: 215 20% 55%;
+  --dev-white: 210 20% 97%;
+  --dev-gradient: linear-gradient(135deg, hsl(215 18% 60%), hsl(210 25% 92%) 50%, hsl(0 0% 100%));
+
+  color-scheme: dark;
+}
+
+/* ── AMBIENT GRADIENT MESH BACKDROP ── */
+.gradient-mesh-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.gradient-mesh-canvas .mesh-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+@keyframes mesh-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6%, 8%) scale(1.12); }
+}
+@keyframes mesh-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-8%, 5%) scale(1.08); }
+}
+@keyframes mesh-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -7%) scale(1.15); }
+}
+
+/* ── GLASS SURFACE ── */
+.dev-mode .glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.dev-mode .glass-strong {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ── GRADIENT TEXT / GLOW UTILITIES ── */
+.dev-mode .gradient-text {
+  background: var(--dev-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dev-mode .studio-glow {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.dev-mode .studio-glow-strong {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 60px rgba(255, 255, 255, 0.06);
+}
+
+/* ── GRADIENT BORDER ON HOVER ── */
+.dev-mode .gradient-border {
+  position: relative;
+  isolation: isolate;
+}
+
+.dev-mode .gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--dev-gradient);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dev-mode .gradient-border:hover::before {
+  opacity: 1;
+}
+
+/* ── SHIMMER SWEEP (subtle, on hover only) ── */
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-120%) skewX(-15deg); }
+  100% { transform: translateX(220%) skewX(-15deg); }
+}
+
+.dev-mode .shimmer-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.dev-mode .shimmer-hover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.16),
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dev-mode .shimmer-hover:hover::after {
+  opacity: 1;
+  animation: shimmer-sweep 1s ease;
+}
+
+/* ── FLOAT-IN ── */
+@keyframes studio-rise {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.dev-mode .studio-rise {
+  animation: studio-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── NAV TAB SWITCH: LANDING GLOW (fires once on switch, then fully clears) ── */
+
+/* Soft glow wash on the pill that was just landed on — no scale, no line,
+   just a brief light wash that fades out. */
+@keyframes tab-landing-pulse {
+  0% { box-shadow: 0 0 0 0 var(--tab-glow-color, transparent); opacity: 1; }
+  100% { box-shadow: 0 0 0 3px transparent; opacity: 0; }
+}
+
+.nav-tab-landing {
+  animation: tab-landing-pulse 0.6s ease-out both;
+  --tab-glow-color: hsl(var(--ring) / 0.4);
+}
+
+.dev-mode .nav-tab-landing {
+  --tab-glow-color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── BASE STYLES ── */
@@ -348,6 +501,68 @@
   }
 }
 
+/* ── DEV-MODE TOOL PAGE OVERRIDES ── */
+.dev-mode .tool-page-title {
+  background: var(--dev-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dev-mode .tool-toolbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.dev-mode .tool-toolbar::before {
+  background: conic-gradient(
+    from var(--toolbar-angle, 0deg),
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.08) 78%,
+    #64748b 84%,
+    #cbd5e1 89%,
+    #ffffff 93%,
+    #cbd5e1 97%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+}
+
+.dev-mode .tool-toolbar::after {
+  background: hsl(var(--card));
+}
+
+.dev-mode .tool-editor,
+.dev-mode .tool-output,
+.dev-mode textarea,
+.dev-mode .tool-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.dev-mode .tool-editor:focus,
+.dev-mode textarea:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.dev-mode .tool-toolbar-action,
+.dev-mode button.bg-foreground {
+  background: var(--dev-gradient);
+  color: #0b0d10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: none;
+}
+
+.dev-mode ::selection {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
 @media (max-width: 640px) {
   .tool-panel-actions > button,
   .tool-panel-actions > div {
@@ -378,8 +593,8 @@
 *::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-.dev-mode *::-webkit-scrollbar-thumb { background: hsl(120 80% 25%); }
-.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(120 100% 45%); }
+.dev-mode *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
+.dev-mode *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
 
 /* ── ANIMATIONS ── */
 @keyframes blink-cursor {
@@ -399,25 +614,6 @@
   50% { transform: translateY(8px); }
 }
 
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
-
-@keyframes flicker {
-  0%, 100% { opacity: 1; }
-  92% { opacity: 1; }
-  93% { opacity: 0.8; }
-  94% { opacity: 1; }
-  96% { opacity: 0.9; }
-  97% { opacity: 1; }
-}
-
-@keyframes matrix-rain {
-  0% { transform: translateY(-100%); opacity: 1; }
-  100% { transform: translateY(100vh); opacity: 0; }
-}
-
 @keyframes type-cursor {
   0%, 100% { border-color: transparent; }
   50% { border-color: currentColor; }
@@ -425,24 +621,6 @@
 
 .cursor-blink { animation: blink-cursor 1s step-end infinite; }
 .bounce-down { animation: bounce-down 1.4s ease-in-out infinite; }
-
-.dev-mode body { animation: flicker 8s infinite; }
-
-.dev-mode .scanline-overlay::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 255, 0, 0.03) 2px,
-    rgba(0, 255, 0, 0.03) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
-
 
 .floating-code {
   animation: float-up linear infinite;

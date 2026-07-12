@@ -5,10 +5,12 @@ import {
   ArrowLeftRight,
   GitCompare,
   FileCode2,
+  KeyRound,
   Zap,
   WifiOff,
   UserX,
   HardDrive,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -75,6 +77,18 @@ const TOOLS = [
     badge: "File to Base64",
   },
   {
+    id: "jwt",
+    icon: KeyRound,
+    name: "JWT Decoder",
+    desc: "Decode and inspect JSON Web Tokens — view header, payload, signature, and expiry at a glance.",
+    color: "text-pink-400",
+    glow: "shadow-pink-500/20",
+    gradient: "from-pink-500/15 to-pink-600/5",
+    border: "border-pink-500/25 hover:border-pink-400/50",
+    iconBg: "bg-pink-500/15",
+    badge: "Decode & Inspect",
+  },
+  {
     id: "stringify",
     icon: ArrowLeftRight,
     name: "Stringify ↔ JSON",
@@ -89,7 +103,7 @@ const TOOLS = [
 ];
 
 const STATS = [
-  { icon: Zap, label: "5 Tools" },
+  { icon: Zap, label: "6 Tools" },
   { icon: WifiOff, label: "100% Offline" },
   { icon: UserX, label: "No Sign-up" },
   { icon: HardDrive, label: "localStorage" },
@@ -127,7 +141,7 @@ export default function HomePage({ onTabChange, devMode }) {
           className="absolute inset-0"
           style={{
             background: devMode
-              ? "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(0,255,0,0.08) 0%, transparent 70%)"
+              ? "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255,255,255,0.09) 0%, transparent 70%)"
               : "radial-gradient(ellipse 70% 55% at 50% 40%, hsl(var(--background)) 20%, transparent 80%)",
           }}
         />
@@ -148,7 +162,7 @@ export default function HomePage({ onTabChange, devMode }) {
             className={cn(
               "floating-code",
               devMode
-                ? "text-green-400"
+                ? "text-white/25"
                 : "text-foreground/50 dark:text-foreground/40",
             )}
             style={{
@@ -157,7 +171,6 @@ export default function HomePage({ onTabChange, devMode }) {
               animationDuration: s.duration,
               animationDelay: s.delay,
               opacity: 0,
-              textShadow: devMode ? "0 0 8px rgba(0,255,0,0.8)" : undefined,
             }}
           >
             {s.text}
@@ -167,30 +180,31 @@ export default function HomePage({ onTabChange, devMode }) {
         {/* Content */}
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           {devMode && (
-            <div className="font-mono text-green-400 text-sm mb-4 opacity-80">
-              &gt; initializing DevToolkit v1.0.0 ... [OK]
-              <br />
-              &gt; loading modules ... [DONE]
-              <br />
-              &gt; <span className="cursor-blink">_</span>
+            <div className="glass inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium mb-6 studio-rise">
+              <Sparkles className="h-3.5 w-3.5 text-white/70" />
+              <span className="gradient-text font-semibold">Dev Mode</span>
+              <span className="text-muted-foreground">— built for design lovers</span>
             </div>
           )}
 
           <h1
             className={cn(
               "font-bold tracking-tight leading-none mb-6",
-              devMode
-                ? "text-4xl sm:text-5xl md:text-6xl text-green-400 font-mono"
-                : "text-4xl sm:text-5xl md:text-6xl",
+              "text-4xl sm:text-5xl md:text-6xl",
+              devMode && "studio-rise",
             )}
-            style={devMode ? { textShadow: "0 0 20px rgba(0,255,0,0.5)" } : {}}
+            style={devMode ? { animationDelay: "0.05s" } : undefined}
           >
-            {devMode ? "> Every Dev Tool" : "Every Dev Tool"}
-            <br />
             {devMode ? (
-              "  You Need._"
+              <>
+                Every Dev Tool
+                <br />
+                <span className="gradient-text">You'll Love to Use.</span>
+              </>
             ) : (
               <>
+                Every Dev Tool
+                <br />
                 You Need.
                 <span className="cursor-blink ml-1 text-muted-foreground">
                   |
@@ -202,22 +216,30 @@ export default function HomePage({ onTabChange, devMode }) {
           <p
             className={cn(
               "text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed",
-              devMode ? "text-green-300/80 font-mono" : "text-muted-foreground",
+              devMode ? "text-muted-foreground studio-rise" : "text-muted-foreground",
             )}
+            style={devMode ? { animationDelay: "0.1s" } : undefined}
           >
             Format JSON. Beautify SQL. Convert strings. Diff anything. All in
             one place — no installs, no sign-ups, fully offline.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
+          <div
+            className={cn(
+              "flex flex-col sm:flex-row items-center justify-center gap-3 mb-12",
+              devMode && "studio-rise",
+            )}
+            style={devMode ? { animationDelay: "0.15s" } : undefined}
+          >
             <button
               onClick={() => onTabChange("json")}
               className={cn(
-                "px-6 py-2.5 rounded-lg font-medium text-base hover:opacity-90 active:scale-95 transition-all duration-150 w-full sm:w-auto",
+                "px-6 py-2.5 rounded-xl font-medium text-base active:scale-95 transition-all duration-200 w-full sm:w-auto",
                 devMode
-                  ? "bg-green-400 text-black font-mono shadow-[0_0_20px_rgba(0,255,0,0.4)] hover:shadow-[0_0_30px_rgba(0,255,0,0.6)]"
-                  : "bg-foreground text-background",
+                  ? "text-[#0b0d10] studio-glow-strong shimmer-hover hover:-translate-y-0.5"
+                  : "bg-foreground text-background hover:opacity-90",
               )}
+              style={devMode ? { background: "var(--dev-gradient)" } : undefined}
             >
               Open JSON Formatter →
             </button>
@@ -228,9 +250,9 @@ export default function HomePage({ onTabChange, devMode }) {
                   ?.scrollIntoView({ behavior: "smooth" });
               }}
               className={cn(
-                "px-6 py-2.5 rounded-lg border font-medium text-base transition-all duration-150 w-full sm:w-auto",
+                "px-6 py-2.5 rounded-xl border font-medium text-base transition-all duration-200 w-full sm:w-auto",
                 devMode
-                  ? "border-green-500/60 text-green-400 font-mono hover:bg-green-500/10"
+                  ? "glass text-white hover:bg-white/10 hover:-translate-y-0.5"
                   : "border-border text-foreground hover:bg-accent",
               )}
             >
@@ -239,31 +261,30 @@ export default function HomePage({ onTabChange, devMode }) {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-14">
+          <div
+            className={cn(
+              "grid grid-cols-2 sm:grid-cols-4 gap-3 mb-14",
+              devMode && "studio-rise",
+            )}
+            style={devMode ? { animationDelay: "0.2s" } : undefined}
+          >
             {STATS.map(({ icon: Icon, label }) => (
               <div
                 key={label}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-xl border backdrop-blur-sm hover:-translate-y-1 transition-all duration-200",
+                  "flex flex-col items-center gap-2 p-4 rounded-2xl border backdrop-blur-sm hover:-translate-y-1 transition-all duration-200",
                   devMode
-                    ? "border-green-500/30 bg-green-500/5 hover:border-green-400/60 hover:shadow-[0_0_15px_rgba(0,255,0,0.1)]"
+                    ? "glass hover:bg-white/8"
                     : "border-border bg-card/60 hover:shadow-md",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    devMode ? "text-green-400" : "text-muted-foreground",
+                    devMode ? "text-white/70" : "text-muted-foreground",
                   )}
                 />
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    devMode && "text-green-300 font-mono",
-                  )}
-                >
-                  {label}
-                </span>
+                <span className="text-sm font-medium">{label}</span>
               </div>
             ))}
           </div>
@@ -273,12 +294,7 @@ export default function HomePage({ onTabChange, devMode }) {
         </div>
 
         {/* Scroll indicator */}
-        <div
-          className={cn(
-            "absolute bottom-8 left-1/2 -translate-x-1/2 bounce-down",
-            devMode ? "text-green-400" : "text-muted-foreground",
-          )}
-        >
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bounce-down text-muted-foreground">
           <ChevronDown className="h-5 w-5" />
         </div>
       </section>
@@ -292,19 +308,17 @@ export default function HomePage({ onTabChange, devMode }) {
           <h2
             className={cn(
               "text-2xl sm:text-3xl font-bold mb-3",
-              devMode && "text-green-400 font-mono",
+              devMode && "gradient-text",
             )}
           >
-            {devMode
-              ? "> Everything you need, nothing you don't."
-              : "Everything you need, nothing you don't."}
+            Everything you need, nothing you don't.
           </h2>
           <p className="text-muted-foreground text-base">
-            Five powerful tools, zero dependencies, all in your browser.
+            Six powerful tools, zero dependencies, all in your browser.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             return (
@@ -315,7 +329,7 @@ export default function HomePage({ onTabChange, devMode }) {
                   "group relative text-left p-6 rounded-2xl border transition-all duration-300 overflow-hidden",
                   "hover:-translate-y-2 hover:shadow-2xl",
                   devMode
-                    ? "border-green-500/30 bg-green-500/5 hover:border-green-400/70 hover:shadow-[0_20px_40px_rgba(0,255,0,0.15)]"
+                    ? "glass gradient-border border-white/10 hover:bg-white/6"
                     : cn(
                         "border bg-card",
                         tool.border,
@@ -332,19 +346,16 @@ export default function HomePage({ onTabChange, devMode }) {
                     )}
                   />
                 )}
-                {devMode && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                )}
 
                 {/* Top shine line */}
-                <div
-                  className={cn(
-                    "absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                    devMode
-                      ? "bg-gradient-to-r from-transparent via-green-400/60 to-transparent"
-                      : `bg-gradient-to-r from-transparent via-current to-transparent ${tool.color}`,
-                  )}
-                />
+                {!devMode && (
+                  <div
+                    className={cn(
+                      "absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                      `bg-gradient-to-r from-transparent via-current to-transparent ${tool.color}`,
+                    )}
+                  />
+                )}
 
                 <div className="relative z-10">
                   {/* Badge */}
@@ -353,7 +364,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       className={cn(
                         "w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-300",
                         devMode
-                          ? "bg-green-500/10 border-green-500/30 group-hover:border-green-400/60 group-hover:shadow-[0_0_15px_rgba(0,255,0,0.2)]"
+                          ? "glass-strong border-white/10 group-hover:scale-110"
                           : cn(
                               tool.iconBg,
                               "border-border group-hover:scale-110",
@@ -363,7 +374,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       <Icon
                         className={cn(
                           "h-5 w-5 transition-all",
-                          devMode ? "text-green-400" : tool.color,
+                          devMode ? "text-white/80" : tool.color,
                         )}
                       />
                     </div>
@@ -371,7 +382,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       className={cn(
                         "text-xs px-2 py-1 rounded-full border font-medium opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0",
                         devMode
-                          ? "border-green-500/40 text-green-400/80 bg-green-500/5 font-mono"
+                          ? "border-white/15 text-white/70 bg-white/5"
                           : cn(
                               "border-border text-muted-foreground",
                               tool.color.replace("text-", "text-"),
@@ -382,13 +393,7 @@ export default function HomePage({ onTabChange, devMode }) {
                     </span>
                   </div>
 
-                  <h3
-                    className={cn(
-                      "font-semibold text-base mb-2 transition-colors",
-                      devMode &&
-                        "text-green-300 font-mono group-hover:text-green-400",
-                    )}
-                  >
+                  <h3 className="font-semibold text-base mb-2 transition-colors">
                     {tool.name}
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-5">
@@ -398,11 +403,16 @@ export default function HomePage({ onTabChange, devMode }) {
                   <div
                     className={cn(
                       "flex items-center gap-1 text-sm font-medium transition-all group-hover:gap-2",
-                      devMode ? "text-green-400 font-mono" : tool.color,
+                      devMode ? "gradient-text" : tool.color,
                     )}
                   >
                     Open Tool
-                    <span className="transition-transform group-hover:translate-x-1">
+                    <span
+                      className={cn(
+                        "transition-transform group-hover:translate-x-1",
+                        devMode && "text-white/80",
+                      )}
+                    >
                       →
                     </span>
                   </div>
@@ -469,9 +479,9 @@ function LiveJsonPreview({ devMode }) {
   return (
     <div
       className={cn(
-        "rounded-xl border overflow-hidden text-left max-w-lg mx-auto shadow-lg",
+        "rounded-2xl border overflow-hidden text-left max-w-lg mx-auto shadow-lg",
         devMode
-          ? "border-green-500/30 bg-black/80 shadow-[0_0_30px_rgba(0,255,0,0.1)]"
+          ? "glass-strong studio-glow border-white/10"
           : "border-border bg-card/80 backdrop-blur",
       )}
     >
@@ -479,7 +489,7 @@ function LiveJsonPreview({ devMode }) {
         className={cn(
           "flex items-center gap-1.5 px-4 py-3 border-b text-sm",
           devMode
-            ? "border-green-500/20 bg-green-500/5"
+            ? "border-white/10 bg-white/3"
             : "border-border bg-background/50",
         )}
       >
@@ -489,7 +499,7 @@ function LiveJsonPreview({ devMode }) {
         <span
           className={cn(
             "ml-2 text-xs font-mono",
-            devMode ? "text-green-400/70" : "text-muted-foreground",
+            devMode ? "text-white/50" : "text-muted-foreground",
           )}
         >
           json-formatter.js
@@ -500,7 +510,7 @@ function LiveJsonPreview({ devMode }) {
           <div
             className={cn(
               "text-xs mb-2 font-medium font-mono",
-              devMode ? "text-green-400/60" : "text-muted-foreground",
+              devMode ? "text-white/40" : "text-muted-foreground",
             )}
           >
             Input
@@ -508,7 +518,7 @@ function LiveJsonPreview({ devMode }) {
           <pre
             className={cn(
               "text-xs font-mono leading-relaxed overflow-hidden whitespace-pre-wrap break-all",
-              devMode ? "text-red-400/70" : "text-red-400/80",
+              "text-red-400/80",
             )}
           >
             {UGLY_JSON}
@@ -518,7 +528,7 @@ function LiveJsonPreview({ devMode }) {
           <div
             className={cn(
               "text-xs mb-2 font-medium font-mono",
-              devMode ? "text-green-400/60" : "text-muted-foreground",
+              devMode ? "text-white/40" : "text-muted-foreground",
             )}
           >
             Formatted ✓
