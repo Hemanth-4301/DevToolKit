@@ -664,6 +664,118 @@
   animation: panel-fade-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ── FIND & REPLACE MODAL ── */
+@keyframes fr-modal-fly {
+  0% {
+    opacity: 0;
+    transform: translate(var(--fr-from-x, 0), var(--fr-from-y, 0)) scale(0.05) rotate(8deg);
+    filter: blur(4px);
+  }
+  16% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(0, calc(var(--fr-from-y, 0) * -0.04)) scale(1.025) rotate(-1deg);
+    filter: blur(0);
+  }
+  88% {
+    transform: translate(0, calc(var(--fr-from-y, 0) * 0.015)) scale(0.99) rotate(0.3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    filter: blur(0);
+  }
+}
+
+.fr-modal {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.fr-modal-fly {
+  animation: fr-modal-fly 0.95s cubic-bezier(0.16, 0.8, 0.2, 1.06) both;
+  transform-origin: center;
+}
+
+/* ── PIN UNLOCK MODAL ── */
+@keyframes pin-modal-in {
+  0%   { opacity: 0; transform: scale(0.9) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.pin-modal-in {
+  animation: pin-modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+.pin-shake {
+  animation: pin-shake 0.4s ease-in-out;
+}
+
+/* ── AI CHAT WIDGET ── */
+@keyframes chat-panel-in {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chat-panel-in {
+  animation: chat-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: bottom right;
+}
+
+/* --card is only a few % lighter than --background in dark themes, which
+   isn't enough contrast for a floating panel to read as "on top of" the
+   page — so this gives the chat surface its own explicit background/border/
+   shadow recipe per theme instead of relying on that subtle token delta. */
+.chat-panel-surface {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(240 5% 88%);
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.dark .chat-panel-surface {
+  background: hsl(240 8% 12%);
+  border: 1px solid hsl(240 6% 24%);
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.5),
+    0 8px 10px -6px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+.dev-mode .chat-panel-surface {
+  background: hsl(220 16% 13%);
+  border: 1px solid hsl(220 14% 28%);
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.5),
+    0 8px 10px -6px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.05);
+}
+
+/* Keyboard-triggered open (Ctrl+H) has no button to fly from, so keep it snappy. */
+@keyframes fr-modal-quick {
+  0%   { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.fr-modal-quick {
+  animation: fr-modal-quick 0.15s ease-out both;
+  transform-origin: top right;
+}
+
 /* ── UTILITIES ── */
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button { @apply hidden; }

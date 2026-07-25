@@ -107,6 +107,30 @@ function detectZipFlavor(bytes) {
   return "application/zip";
 }
 
+// Sniffs whether decoded bytes look like plain text (printable/UTF-8) rather
+// than binary — used as a fallback when the magic-byte table finds no known
+// file signature, e.g. base64 produced from typed text in "File → Base64"
+// text mode has no image/pdf/zip header to match against.
+function looksLikePlainText(bytes) {
+  if (bytes.length === 0) return false;
+  let printable = 0;
+  const sample = bytes.subarray(0, Math.min(bytes.length, 2048));
+  for (let i = 0; i < sample.length; i++) {
+    const b = sample[i];
+    if (b === 0) return false; // NUL byte is a strong binary signal
+    if (
+      b === 9 ||
+      b === 10 ||
+      b === 13 ||
+      (b >= 32 && b <= 126) ||
+      b >= 128 // allow UTF-8 continuation/multibyte sequences
+    ) {
+      printable++;
+    }
+  }
+  return printable / sample.length > 0.95;
+}
+
 function detectMimeFromBase64(b64) {
   if (b64.startsWith("data:")) {
     const m = b64.match(/^data:([^;]+);base64,/);
@@ -124,6 +148,7 @@ function detectMimeFromBase64(b64) {
   }
   if (h.startsWith("eyJ") || h.startsWith("77u/")) return "application/json";
   if (h.startsWith("PD94bW") || h.startsWith("PCFET")) return "text/xml";
+  if (looksLikePlainText(decodeBase64Head(b64, 2048))) return "text/plain";
   return "application/octet-stream";
 }
 
@@ -133,6 +158,22 @@ function base64ToBlob(b64str, mimeType) {
   const bytes = new Uint8Array(chars.length);
   for (let i = 0; i < chars.length; i++) bytes[i] = chars.charCodeAt(i);
   return new Blob([bytes], { type: mimeType });
+}
+
+// Above this, live-encoding on every keystroke would noticeably lag the
+// textarea — the file-upload path (with a progress bar) is the right tool
+// for anything this big, so we cap live "Text → Base64" typing instead.
+const TEXT_ENCODE_MAX_CHARS = 500_000;
+
+// Chunked to avoid both the call-stack limit of String.fromCharCode(...bytes)
+// on large arrays and the O(n) cost of per-character string concatenation.
+function bytesToBase64(bytes) {
+  const CHUNK = 8192;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 function blobToBase64(blob, onProgress) {
@@ -170,14 +211,44 @@ function getTruncatedPreview(value, limit = BASE64_PREVIEW_LIMIT) {
 
 function TextPreview({ blob }) {
   const [text, setText] = useState("Loading…");
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     blob.text().then((t) => setText(t));
   }, [blob]);
+
+  const handleCopy = async () => {
+    if (!text || text === "Loading…") return;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    addToast({ title: "Copied!", type: "success" });
+  };
+
   return (
-    <pre className="w-full max-h-[380px] overflow-auto text-xs font-mono text-foreground dark:text-green-400 whitespace-pre-wrap break-all p-2">
-      {text.slice(0, 3000)}
-      {text.length > 3000 ? "\n…(truncated)" : ""}
-    </pre>
+    <div className="w-full max-h-[380px] flex flex-col">
+      <div className="flex justify-end mb-1">
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors",
+            copied
+              ? "text-green-400"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent",
+          )}
+        >
+          {copied ? (
+            <Check className="h-3 w-3" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
+          {copied ? "Copied!" : "Copy text"}
+        </button>
+      </div>
+      <pre className="w-full flex-1 overflow-auto text-xs font-mono text-foreground dark:text-green-400 whitespace-pre-wrap break-all p-2">
+        {text.slice(0, 3000)}
+        {text.length > 3000 ? "\n…(truncated)" : ""}
+      </pre>
+    </div>
   );
 }
 function argbToCss(rgb) {
@@ -426,7 +497,9 @@ export default function Base64Converter() {
   const prevObjectUrl = useRef(null);
 
   // ── Encode state
-  const [encodeOutput, setEncodeOutput] = useState(""); // full data URL
+  const [encodeSourceMode, setEncodeSourceMode] = useState("file"); // "file" | "text"
+  const [encodeTextInput, setEncodeTextInput] = useState("");
+  const [encodeOutput, setEncodeOutput] = useState(""); // full data URL (file mode) or raw base64 (text mode)
   const [encodeFileName, setEncodeFileName] = useState("");
   const [encodeSize, setEncodeSize] = useState(null);
   const [encodeError, setEncodeError] = useState(null);
@@ -588,6 +661,43 @@ export default function Base64Converter() {
     if (file) handleFileUpload({ target: { files: [file] } });
   };
 
+  // Ctrl+V with a file copied from the OS file explorer (or an image copied
+  // from a browser/app) lands in clipboardData.files, same shape as a real
+  // <input type="file"> change event — so it can reuse handleFileUpload.
+  const handleDropzonePaste = (e) => {
+    const file = e.clipboardData?.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    handleFileUpload({ target: { files: [file] } });
+  };
+
+  const handleEncodeTextChange = (text) => {
+    setEncodeTextInput(text);
+    setEncodeError(null);
+    setShowFullEncodeOutput(false);
+    if (!text) {
+      setEncodeOutput("");
+      setEncodeSize(null);
+      return;
+    }
+    if (text.length > TEXT_ENCODE_MAX_CHARS) {
+      setEncodeOutput("");
+      setEncodeSize(null);
+      setEncodeError(
+        `Text is too large to live-encode (${text.length.toLocaleString()} chars). Use "Upload File" instead for large content.`,
+      );
+      return;
+    }
+    try {
+      const bytes = new TextEncoder().encode(text);
+      setEncodeOutput(bytesToBase64(bytes));
+      setEncodeSize(bytes.length);
+    } catch (err) {
+      setEncodeError("Failed to encode text: " + err.message);
+      setEncodeOutput("");
+    }
+  };
+
   const displayOutput =
     stripPrefix && encodeOutput.includes(",")
       ? encodeOutput.split(",")[1]
@@ -619,6 +729,7 @@ export default function Base64Converter() {
     setEncodeError(null);
     setEncodeProgress(0);
     setShowFullEncodeOutput(false);
+    setEncodeTextInput("");
   };
 
   const handlePreviewHotkeys = useCallback(async (e, fullValue) => {
@@ -817,11 +928,20 @@ export default function Base64Converter() {
                 if (decodePreviewMode || isDecoding) return;
                 e.preventDefault();
                 const pasted = e.clipboardData.getData("text");
-                setDecodeInput(pasted);
+                const el = e.target;
+                const start = el.selectionStart ?? decodeInput.length;
+                const end = el.selectionEnd ?? decodeInput.length;
+                const next =
+                  decodeInput.slice(0, start) + pasted + decodeInput.slice(end);
+                setDecodeInput(next);
                 setDecodeError(null);
                 setDecodeResult(null);
                 setShowFullDecodeInput(false);
-                runDecode(pasted);
+                runDecode(next);
+                requestAnimationFrame(() => {
+                  const pos = start + pasted.length;
+                  el.setSelectionRange?.(pos, pos);
+                });
               }}
               onKeyDown={async (e) => {
                 if (decodePreviewMode) {
@@ -966,10 +1086,44 @@ export default function Base64Converter() {
       {/* ── ENCODE ─────────────────────────────────────────────────────────── */}
       {mode === "encode" && (
         <div className="tool-grid items-start">
-          {/* Drop zone */}
+          {/* Source panel */}
           <div className="tool-panel">
             <div className="tool-panel-header">
-              <span className="text-sm font-medium">Upload File</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {encodeSourceMode === "file" ? "Upload File" : "Enter Text"}
+                </span>
+                <div className="flex items-center border border-border rounded-md overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setEncodeSourceMode("file");
+                      clearEncode();
+                    }}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium transition-colors",
+                      encodeSourceMode === "file"
+                        ? "bg-foreground text-background"
+                        : "hover:bg-accent text-muted-foreground",
+                    )}
+                  >
+                    File
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEncodeSourceMode("text");
+                      clearEncode();
+                    }}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium transition-colors",
+                      encodeSourceMode === "text"
+                        ? "bg-foreground text-background"
+                        : "hover:bg-accent text-muted-foreground",
+                    )}
+                  >
+                    Text
+                  </button>
+                </div>
+              </div>
               {encodeOutput && (
                 <button
                   onClick={clearEncode}
@@ -980,52 +1134,90 @@ export default function Base64Converter() {
               )}
             </div>
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors"
-            >
-              {isEncoding ? (
-                <div className="w-full max-w-xs text-center">
-                  <Loader2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground animate-spin" />
-                  <p className="text-sm font-medium mb-2">
-                    Uploading & converting...
-                  </p>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-foreground transition-all"
-                      style={{ width: `${encodeProgress}%` }}
-                    />
+            {encodeSourceMode === "text" ? (
+              <textarea
+                value={encodeTextInput}
+                onChange={(e) => handleEncodeTextChange(e.target.value)}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text");
+                  const el = e.target;
+                  const start = el.selectionStart ?? encodeTextInput.length;
+                  const end = el.selectionEnd ?? encodeTextInput.length;
+                  const next =
+                    encodeTextInput.slice(0, start) +
+                    pasted +
+                    encodeTextInput.slice(end);
+                  handleEncodeTextChange(next);
+                  requestAnimationFrame(() => {
+                    const pos = start + pasted.length;
+                    el.setSelectionRange(pos, pos);
+                  });
+                }}
+                placeholder="Type or paste text here to encode it to Base64…"
+                className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50"
+              />
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onPaste={handleDropzonePaste}
+                tabIndex={0}
+                role="button"
+                aria-label="Upload a file, or click and press Ctrl+V to paste a copied file"
+                className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border-2 border-dashed border-border bg-card flex flex-col items-center justify-center cursor-pointer hover:bg-accent/30 transition-colors focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50"
+              >
+                {isEncoding ? (
+                  <div className="w-full max-w-xs text-center">
+                    <Loader2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground animate-spin" />
+                    <p className="text-sm font-medium mb-2">
+                      Uploading & converting...
+                    </p>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-foreground transition-all"
+                        style={{ width: `${encodeProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {encodeProgress}%
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {encodeProgress}%
-                  </p>
-                </div>
-              ) : !encodeOutput ? (
-                <>
-                  <Upload className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
-                  <p className="text-sm font-medium mb-1">
-                    Click or drag &amp; drop a file
-                  </p>
-                  <p className="text-xs text-muted-foreground text-center max-w-xs leading-5">
-                    Images · PDF · Word (.docx) · Excel (.xlsx) · PowerPoint ·
-                    CSV · ZIP and more
-                  </p>
-                </>
-              ) : (
-                <div className="text-center">
-                  <FileText className="h-10 w-10 mx-auto mb-3 text-green-500 opacity-70" />
-                  <p className="text-sm font-medium mb-0.5">{encodeFileName}</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {formatBytes(encodeSize)} · Encoded
-                  </p>
-                  <p className="text-xs text-muted-foreground opacity-50">
-                    Click to replace file
-                  </p>
-                </div>
-              )}
-            </div>
+                ) : !encodeOutput ? (
+                  <>
+                    <Upload className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
+                    <p className="text-sm font-medium mb-1">
+                      Click or drag &amp; drop a file
+                    </p>
+                    <p className="text-xs text-muted-foreground text-center max-w-xs leading-5">
+                      Images · PDF · Word (.docx) · Excel (.xlsx) · PowerPoint ·
+                      CSV · ZIP and more
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 text-center mt-2">
+                      or click here and press Ctrl+V to paste a copied file
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <FileText className="h-10 w-10 mx-auto mb-3 text-green-500 opacity-70" />
+                    <p className="text-sm font-medium mb-0.5">{encodeFileName}</p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {formatBytes(encodeSize)} · Encoded
+                    </p>
+                    <p className="text-xs text-muted-foreground opacity-50">
+                      Click to replace file
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <input
               ref={fileInputRef}

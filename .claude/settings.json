@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(npm info *)",
+      "Bash(npm install *)"
+    ]
+  }
+}

@@ -13,11 +13,13 @@ import {
   ClipboardPaste,
   RotateCcw,
   FileText,
+  Replace,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import JsonTree from "../components/JsonTree";
+import FindReplaceModal from "../components/FindReplaceModal";
 
 const HISTORY_KEY = "devtoolkit_json_history";
 const STATE_KEY = "devtoolkit_json_state";
@@ -341,7 +343,19 @@ export default function JsonFormatter() {
   const [searchMode, setSearchMode] = useState("both");
   const [animKey, setAnimKey] = useState(0);
   const [isFormatting, setIsFormatting] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setShowFindReplace(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const parsedOutput = useMemo(() => {
     if (!output) return null;
@@ -555,6 +569,14 @@ export default function JsonFormatter() {
           >
             Sort Keys {sortKeys ? "ON" : "OFF"}
           </button>
+
+          <button
+            onClick={() => setShowFindReplace(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
+          >
+            <Replace className="h-3.5 w-3.5" /> Find &amp; Replace{" "}
+            <span className="opacity-60">Ctrl+H</span>
+          </button>
         </div>
 
         <button
@@ -697,8 +719,16 @@ export default function JsonFormatter() {
             onPaste={(e) => {
               e.preventDefault();
               const pasted = e.clipboardData.getData("text");
-              handleInput(pasted);
-              formatJsonText(pasted);
+              const el = e.target;
+              const start = el.selectionStart ?? input.length;
+              const end = el.selectionEnd ?? input.length;
+              const next = input.slice(0, start) + pasted + input.slice(end);
+              handleInput(next);
+              formatJsonText(next);
+              requestAnimationFrame(() => {
+                const pos = start + pasted.length;
+                el.setSelectionRange(pos, pos);
+              });
             }}
             onKeyDown={(e) => {
               if (e.ctrlKey && e.key === "Enter") handleFormat();
@@ -1028,6 +1058,17 @@ export default function JsonFormatter() {
           </div>
         </div>
       )}
+      <FindReplaceModal
+        open={showFindReplace}
+        onClose={() => setShowFindReplace(false)}
+        value={input}
+        onChange={(next) => {
+          setInput(next);
+          validateInput(next);
+        }}
+        secondaryValue={output}
+        onSecondaryChange={setOutput}
+      />
       <ScrollToTop />
     </div>
   );

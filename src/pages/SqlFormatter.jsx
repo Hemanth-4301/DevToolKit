@@ -12,11 +12,13 @@ import {
   RotateCcw,
   FileText,
   Maximize2,
+  Replace,
 } from "lucide-react";
 import { format as sqlFormat } from "sql-formatter";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
+import FindReplaceModal from "../components/FindReplaceModal";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
 const STATE_KEY = "devtoolkit_sql_state";
@@ -900,6 +902,18 @@ export default function SqlFormatter() {
   const [copied, setCopied] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const [showFindReplace, setShowFindReplace] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setShowFindReplace(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const fileInputRef = useRef(null);
 
   // Memoize highlighted output — expensive for large SQL, only recompute when output changes
@@ -909,22 +923,25 @@ export default function SqlFormatter() {
     setState({ input, output });
   }, [input, output]);
 
-  const formatSqlText = useCallback((text) => {
-    if (!text.trim()) {
-      setOutput("");
-      return;
-    }
-    const formatted = formatSQL(text, {
-      indentSize,
-      keyCase,
-      commaPos,
-      dialect,
-    });
-    setOutput(formatted);
-    setAnimKey((k) => k + 1);
-    saveHistory(text, formatted);
-    setHistory(getHistory());
-  }, [indentSize, keyCase, commaPos, dialect]);
+  const formatSqlText = useCallback(
+    (text) => {
+      if (!text.trim()) {
+        setOutput("");
+        return;
+      }
+      const formatted = formatSQL(text, {
+        indentSize,
+        keyCase,
+        commaPos,
+        dialect,
+      });
+      setOutput(formatted);
+      setAnimKey((k) => k + 1);
+      saveHistory(text, formatted);
+      setHistory(getHistory());
+    },
+    [indentSize, keyCase, commaPos, dialect],
+  );
 
   const handleFormat = () => {
     if (!input.trim()) return;
@@ -1126,6 +1143,14 @@ export default function SqlFormatter() {
           >
             Remove Comments
           </button>
+
+          <button
+            onClick={() => setShowFindReplace(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors bg-black text-white hover:opacity-80 dark:bg-white dark:text-black"
+          >
+            <Replace className="h-3.5 w-3.5" /> Find &amp; Replace{" "}
+            <span className="opacity-60">Ctrl+H</span>
+          </button>
         </div>
 
         <button
@@ -1196,8 +1221,16 @@ export default function SqlFormatter() {
             onPaste={(e) => {
               e.preventDefault();
               const pasted = e.clipboardData.getData("text");
-              setInput(pasted);
-              formatSqlText(pasted);
+              const el = e.target;
+              const start = el.selectionStart ?? input.length;
+              const end = el.selectionEnd ?? input.length;
+              const next = input.slice(0, start) + pasted + input.slice(end);
+              setInput(next);
+              formatSqlText(next);
+              requestAnimationFrame(() => {
+                const pos = start + pasted.length;
+                el.setSelectionRange(pos, pos);
+              });
             }}
             onKeyDown={(e) => {
               if (e.ctrlKey && e.key === "Enter") handleFormat();
@@ -1375,6 +1408,22 @@ export default function SqlFormatter() {
           </div>
         </div>
       )}
+      <FindReplaceModal
+        open={showFindReplace}
+        onClose={() => setShowFindReplace(false)}
+        value={input}
+        onChange={setInput}
+        secondaryValue={output}
+        onSecondaryChange={setOutput}
+        suggestions={[
+          {
+            label: "Escape single quotes",
+            description: "",
+            find: "'",
+            replace: "''",
+          },
+        ]}
+      />
       <ScrollToTop />
     </div>
   );

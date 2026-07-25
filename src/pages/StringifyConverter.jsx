@@ -11,9 +11,11 @@ import {
   ClipboardPaste,
   AlertCircle,
   Maximize2,
+  Replace,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
+import FindReplaceModal from "../components/FindReplaceModal";
 
 const HISTORY_KEY = "devtoolkit_stringify_history";
 const STATE_KEY = "devtoolkit_stringify_state";
@@ -293,10 +295,49 @@ export default function StringifyConverter() {
   const [jsonOutput, setJsonOutput] = useState(initialState.jsonOutput);
   const [parseError, setParseError] = useState(null);
   const [expandedOutput, setExpandedOutput] = useState(null);
+  const [findReplaceTarget, setFindReplaceTarget] = useState(null); // "jsonInput" | "stringInput" | "liveJson" | "liveStringified"
 
   const debounceRef = useRef(null);
   const fileRefA = useRef(null);
   const fileRefB = useRef(null);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setFindReplaceTarget(liveMode ? "liveJson" : "jsonInput");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [liveMode]);
+
+  const findReplaceValue =
+    findReplaceTarget === "jsonInput"
+      ? jsonInput
+      : findReplaceTarget === "stringInput"
+        ? stringInput
+        : findReplaceTarget === "liveJson"
+          ? liveJson
+          : findReplaceTarget === "liveStringified"
+            ? liveStringified
+            : "";
+
+  const handleFindReplaceChange = (next) => {
+    if (findReplaceTarget === "jsonInput") {
+      setJsonInput(next);
+      runStringifyFromInput(next);
+    } else if (findReplaceTarget === "stringInput") {
+      setStringInput(next);
+      runParseFromInput(next);
+    } else if (findReplaceTarget === "liveJson") {
+      setLiveJson(next);
+      runLiveStringify(next);
+    } else if (findReplaceTarget === "liveStringified") {
+      setLiveStringified(next);
+      runLiveParse(next);
+    }
+  };
 
   useEffect(() => {
     setState({
@@ -430,12 +471,20 @@ export default function StringifyConverter() {
               <span className="text-sm font-semibold">
                 Normal JSON (pretty)
               </span>
-              {liveJsonError && (
-                <span className="flex items-center gap-1 text-xs text-red-400">
-                  <AlertCircle className="h-3 w-3" />{" "}
-                  {liveJsonError.slice(0, 40)}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {liveJsonError && (
+                  <span className="flex items-center gap-1 text-xs text-red-400">
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {liveJsonError.slice(0, 40)}
+                  </span>
+                )}
+                <button
+                  onClick={() => setFindReplaceTarget("liveJson")}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                >
+                  <Replace className="h-3.5 w-3.5" /> Find &amp; Replace
+                </button>
+              </div>
             </div>
             <textarea
               value={liveJson}
@@ -460,12 +509,20 @@ export default function StringifyConverter() {
               <span className="text-sm font-semibold">
                 Stringified (escaped string)
               </span>
-              {liveStringError && (
-                <span className="flex items-center gap-1 text-xs text-red-400">
-                  <AlertCircle className="h-3 w-3" />{" "}
-                  {liveStringError.slice(0, 40)}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {liveStringError && (
+                  <span className="flex items-center gap-1 text-xs text-red-400">
+                    <AlertCircle className="h-3 w-3" />{" "}
+                    {liveStringError.slice(0, 40)}
+                  </span>
+                )}
+                <button
+                  onClick={() => setFindReplaceTarget("liveStringified")}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                >
+                  <Replace className="h-3.5 w-3.5" /> Find &amp; Replace
+                </button>
+              </div>
             </div>
             <textarea
               value={liveStringified}
@@ -497,6 +554,15 @@ export default function StringifyConverter() {
           </code>
           ) ready to embed in code.
         </p>
+        <FindReplaceModal
+          open={
+            findReplaceTarget === "liveJson" ||
+            findReplaceTarget === "liveStringified"
+          }
+          onClose={() => setFindReplaceTarget(null)}
+          value={findReplaceValue}
+          onChange={handleFindReplaceChange}
+        />
       </div>
     );
   }
@@ -574,6 +640,12 @@ export default function StringifyConverter() {
                 </span>
                 <div className="tool-panel-actions">
                   <button
+                    onClick={() => setFindReplaceTarget("jsonInput")}
+                    className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                  >
+                    <Replace className="h-3.5 w-3.5" /> Find &amp; Replace
+                  </button>
+                  <button
                     onClick={async () => {
                       const pasted = await navigator.clipboard.readText();
                       setJsonInput(pasted);
@@ -629,8 +701,17 @@ export default function StringifyConverter() {
                 onPaste={(e) => {
                   e.preventDefault();
                   const pasted = e.clipboardData.getData("text");
-                  setJsonInput(pasted);
-                  runStringifyFromInput(pasted);
+                  const el = e.target;
+                  const start = el.selectionStart ?? jsonInput.length;
+                  const end = el.selectionEnd ?? jsonInput.length;
+                  const next =
+                    jsonInput.slice(0, start) + pasted + jsonInput.slice(end);
+                  setJsonInput(next);
+                  runStringifyFromInput(next);
+                  requestAnimationFrame(() => {
+                    const pos = start + pasted.length;
+                    el.setSelectionRange(pos, pos);
+                  });
                 }}
                 placeholder={'{\n  "name": "Alice",\n  "age": 30\n}'}
                 className={cn(
@@ -743,6 +824,12 @@ export default function StringifyConverter() {
                 </span>
                 <div className="tool-panel-actions">
                   <button
+                    onClick={() => setFindReplaceTarget("stringInput")}
+                    className="flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                  >
+                    <Replace className="h-3.5 w-3.5" /> Find &amp; Replace
+                  </button>
+                  <button
                     onClick={async () => {
                       const pasted = await navigator.clipboard.readText();
                       setStringInput(pasted);
@@ -798,8 +885,19 @@ export default function StringifyConverter() {
                 onPaste={(e) => {
                   e.preventDefault();
                   const pasted = e.clipboardData.getData("text");
-                  setStringInput(pasted);
-                  runParseFromInput(pasted);
+                  const el = e.target;
+                  const start = el.selectionStart ?? stringInput.length;
+                  const end = el.selectionEnd ?? stringInput.length;
+                  const next =
+                    stringInput.slice(0, start) +
+                    pasted +
+                    stringInput.slice(end);
+                  setStringInput(next);
+                  runParseFromInput(next);
+                  requestAnimationFrame(() => {
+                    const pos = start + pasted.length;
+                    el.setSelectionRange(pos, pos);
+                  });
                 }}
                 placeholder={'"{\\"name\\":\\"Alice\\",\\"age\\":30}"'}
                 className={cn(
@@ -905,6 +1003,15 @@ export default function StringifyConverter() {
           </div>
         </div>
       )}
+      <FindReplaceModal
+        open={
+          findReplaceTarget === "jsonInput" ||
+          findReplaceTarget === "stringInput"
+        }
+        onClose={() => setFindReplaceTarget(null)}
+        value={findReplaceValue}
+        onChange={handleFindReplaceChange}
+      />
     </div>
   );
 }

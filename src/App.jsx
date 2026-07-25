@@ -9,6 +9,10 @@ import DiffChecker from "./pages/DiffChecker";
 import JwtDecoder from "./pages/JwtDecoder";
 import { ToastContainer } from "./components/Toast";
 import GradientMesh from "./components/GradientMesh";
+import ChatWidget from "./components/ChatWidget";
+import PinUnlockModal from "./components/PinUnlockModal";
+
+const CHAT_UNLOCK_KEY = "devtoolkit_chat_unlocked";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
@@ -16,6 +20,10 @@ export default function App() {
     const saved = localStorage.getItem("devtoolkit_devmode");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  const [chatUnlocked, setChatUnlocked] = useState(() => {
+    return localStorage.getItem(CHAT_UNLOCK_KEY) === "true";
+  });
+  const [showPinModal, setShowPinModal] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("devtoolkit_devmode", JSON.stringify(devMode));
@@ -42,6 +50,12 @@ export default function App() {
     }
   }, [devMode]);
 
+  const handleChatUnlock = () => {
+    setChatUnlocked(true);
+    localStorage.setItem(CHAT_UNLOCK_KEY, "true");
+    setShowPinModal(false);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <GradientMesh active={devMode} />
@@ -50,6 +64,7 @@ export default function App() {
         onTabChange={setActiveTab}
         devMode={devMode}
         onDevModeToggle={() => setDevMode((d) => !d)}
+        onLogoTripleClick={() => setShowPinModal(true)}
       />
       <main className="overflow-x-hidden">
         <section className={activeTab === "home" ? "block" : "hidden"}>
@@ -81,6 +96,12 @@ export default function App() {
         </section>
       </main>
       <ToastContainer />
+      {chatUnlocked && <ChatWidget />}
+      <PinUnlockModal
+        open={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSuccess={handleChatUnlock}
+      />
     </div>
   );
 }

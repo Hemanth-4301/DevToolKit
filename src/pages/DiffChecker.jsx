@@ -10,9 +10,11 @@ import {
   ClipboardPaste,
   FileText,
   Maximize2,
+  Replace,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
+import FindReplaceModal from "../components/FindReplaceModal";
 
 const STATE_KEY = "devtoolkit_diff_state";
 
@@ -614,6 +616,18 @@ export default function DiffChecker({ isActive = true }) {
   const [diff, setDiff] = useState(null);
   const [showOptions, setShowOptions] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [findReplaceTarget, setFindReplaceTarget] = useState(null); // "left" | "right"
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setFindReplaceTarget("left");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const [options, setOptions] = useState({
     ignoreWhitespace: false,
     ignoreBlankLines: false,
@@ -694,14 +708,15 @@ export default function DiffChecker({ isActive = true }) {
 
   return (
     <div className="tool-page">
+      <div className="tool-page-header">
+        <h1 className="tool-page-title">Diff Checker</h1>
+        <p className="tool-page-subtitle">
+          Compare any two texts side-by-side or unified.
+        </p>
+      </div>
+
       <div className="tool-toolbar">
-        <div>
-          <h1 className="tool-page-title">Diff Checker</h1>
-          <p className="tool-page-subtitle">
-            Compare any two texts side-by-side or unified.
-          </p>
-        </div>
-        <div className="tool-toolbar-main sm:justify-end">
+        <div className="tool-toolbar-main">
           <div className="tool-control-row">
             <select
               value={lang}
@@ -836,6 +851,7 @@ export default function DiffChecker({ isActive = true }) {
           onClear={() => {
             setLeftText("");
           }}
+          onFindReplace={() => setFindReplaceTarget("left")}
           fileRef={leftFile}
         />
         <PanelInput
@@ -855,6 +871,7 @@ export default function DiffChecker({ isActive = true }) {
           onClear={() => {
             setRightText("");
           }}
+          onFindReplace={() => setFindReplaceTarget("right")}
           fileRef={rightFile}
         />
       </div>
@@ -972,6 +989,15 @@ export default function DiffChecker({ isActive = true }) {
           </div>
         </div>
       )}
+      <FindReplaceModal
+        open={!!findReplaceTarget}
+        onClose={() => setFindReplaceTarget(null)}
+        value={findReplaceTarget === "right" ? rightText : leftText}
+        onChange={(next) => {
+          if (findReplaceTarget === "right") setRightText(next);
+          else setLeftText(next);
+        }}
+      />
     </div>
   );
 }
@@ -984,6 +1010,7 @@ function PanelInput({
   onPaste,
   onUpload,
   onClear,
+  onFindReplace,
   fileRef,
 }) {
   const [editing, setEditing] = useState(false);
@@ -1026,6 +1053,12 @@ function PanelInput({
           )}
         </div>
         <div className="tool-panel-actions">
+          <button
+            onClick={onFindReplace}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+          >
+            <Replace className="h-3 w-3" /> Find &amp; Replace
+          </button>
           <button
             onClick={onPaste}
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"

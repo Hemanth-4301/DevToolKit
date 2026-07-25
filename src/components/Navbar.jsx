@@ -13,11 +13,17 @@ const TABS = [
   { id: "stringify", label: "Stringify ↔ JSON" },
 ];
 
+// Generous window — real people rarely click faster than ~150ms apart but
+// also aren't perfectly rhythmic, so this favors registering the sequence
+// over precise timing.
+const LOGO_CLICK_WINDOW_MS = 900;
+
 export default function Navbar({
   activeTab,
   onTabChange,
   devMode,
   onDevModeToggle,
+  onLogoTripleClick,
 }) {
   const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,6 +32,52 @@ export default function Navbar({
   const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   const [glowKey, setGlowKey] = useState(0);
   const isFirstRun = useRef(true);
+  const logoClickCount = useRef(0);
+  const logoResetTimer = useRef(null);
+  const logoNavTimer = useRef(null);
+  const logoBurstLocked = useRef(false);
+
+  const handleLogoClick = () => {
+    // Once a burst has already triggered the unlock check, ignore any
+    // further clicks that land in the same streak (e.g. someone clicking
+    // 5-6 times) instead of letting them restart the single-click-navigate
+    // timer and silently redirect home a moment later.
+    if (logoBurstLocked.current) return;
+
+    logoClickCount.current += 1;
+    clearTimeout(logoResetTimer.current);
+
+    if (logoClickCount.current >= 3) {
+      logoClickCount.current = 0;
+      logoBurstLocked.current = true;
+      clearTimeout(logoNavTimer.current);
+      onLogoTripleClick?.();
+      setTimeout(() => {
+        logoBurstLocked.current = false;
+      }, LOGO_CLICK_WINDOW_MS);
+      return;
+    }
+
+    // Reset the streak if the next click doesn't land in time.
+    logoResetTimer.current = setTimeout(() => {
+      logoClickCount.current = 0;
+    }, LOGO_CLICK_WINDOW_MS);
+
+    // Defer the normal "go home" navigation just long enough to see if a
+    // 3rd click lands within the window — otherwise a single click would
+    // navigate before the triple-click could ever be detected.
+    clearTimeout(logoNavTimer.current);
+    logoNavTimer.current = setTimeout(() => {
+      onTabChange("home");
+    }, LOGO_CLICK_WINDOW_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(logoResetTimer.current);
+      clearTimeout(logoNavTimer.current);
+    };
+  }, []);
 
   const measure = () => {
     const el = tabRefs.current[activeTab];
@@ -69,8 +121,8 @@ export default function Navbar({
     >
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-5 h-14 flex items-center justify-between gap-3">
         <button
-          onClick={() => onTabChange("home")}
-          className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity select-none"
         >
           <div
             className={cn(

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(awk 'NR>=1 && NR<=110' \"c:/Users/heman/Desktop/my_projects/DevToolKit/src/pages/Base64Converter.jsx\")"
+      "Bash(awk 'NR>=1 && NR<=110' \"c:/Users/heman/Desktop/my_projects/DevToolKit/src/pages/Base64Converter.jsx\")",
+      "Bash(node -e ' *)",
+      "Bash(npx playwright *)"
     ]
   }
 }
