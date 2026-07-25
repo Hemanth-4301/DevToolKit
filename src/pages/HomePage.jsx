@@ -14,6 +14,35 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
+// Deterministic pseudo-random binary strings for the Dev Mode hero rain —
+// fixed per column (not re-rolled on every render) so the effect doesn't
+// visibly "jump" on re-renders triggered by unrelated state changes.
+const BINARY_RAIN_COLUMN_COUNT = 32;
+const BINARY_RAIN_COLUMNS = Array.from(
+  { length: BINARY_RAIN_COLUMN_COUNT },
+  (_, i) => {
+    let seed = i * 7919 + 13;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    const length = 20 + Math.floor(rand() * 16);
+    const digits = Array.from({ length }, () =>
+      rand() < 0.5 ? "0" : "1",
+    ).join("\n");
+    return {
+      digits,
+      x: `${(i / BINARY_RAIN_COLUMN_COUNT) * 100 + rand() * 2}%`,
+      // Negative delay starts each column already mid-fall instead of
+      // waiting to begin — so the rain is already falling on first paint
+      // instead of sitting static for a beat before the earliest column
+      // kicks off.
+      delay: `-${rand() * 8}s`,
+      duration: `${5 + rand() * 5}s`,
+      fontSize: `${11 + Math.floor(rand() * 4)}px`,
+    };
+});
+
 const FLOATING_SNIPPETS = [
   { text: '{"name": "dev"}', x: "5%", delay: "0s", duration: "12s" },
   { text: "SELECT * FROM users", x: "18%", delay: "2.5s", duration: "16s" },
@@ -109,13 +138,13 @@ const STATS = [
   { icon: HardDrive, label: "localStorage" },
 ];
 
-const UGLY_JSON = `{"name":"John","age":30,"address":{"city":"NYC","zip":"10001"},"tags":["dev","js"],"active":true}`;
+const UGLY_JSON = `{"name":"Hemanth","age":22,"address":{"city":"Mysore","zip":"571311"},"tags":["dev","js"],"active":true}`;
 const PRETTY_JSON = `{
-  "name": "John",
-  "age": 30,
+  "name": "Hemanth",
+  "age": 22,
   "address": {
-    "city": "NYC",
-    "zip": "10001"
+    "city": "Mysore",
+    "zip": "571311"
   },
   "tags": ["dev", "js"],
   "active": true
@@ -136,15 +165,37 @@ export default function HomePage({ onTabChange, devMode }) {
           }}
         />
 
-        {/* Radial gradient center glow — theme-aware */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: devMode
-              ? "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255,255,255,0.09) 0%, transparent 70%)"
-              : "radial-gradient(ellipse 70% 55% at 50% 40%, hsl(var(--background)) 20%, transparent 80%)",
-          }}
-        />
+        {/* Binary rain — hero section only, all themes. Dev Mode gets a
+            green tint via .binary-rain's devMode class; light/dark use the
+            theme-aware foreground color instead. */}
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+          {BINARY_RAIN_COLUMNS.map((col, i) => (
+            <span
+              key={i}
+              className={cn("binary-rain", devMode && "binary-rain-dev")}
+              style={{
+                left: col.x,
+                fontSize: col.fontSize,
+                animationDuration: col.duration,
+                animationDelay: col.delay,
+              }}
+            >
+              {col.digits}
+            </span>
+          ))}
+        </div>
+
+        {/* Radial gradient center glow — disabled entirely in Dev Mode,
+            which stays flat with no ambient glow of any kind. */}
+        {!devMode && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 55% at 50% 40%, hsl(var(--background)) 20%, transparent 80%)",
+            }}
+          />
+        )}
 
         {/* Bottom fade */}
         <div
@@ -162,7 +213,7 @@ export default function HomePage({ onTabChange, devMode }) {
             className={cn(
               "floating-code",
               devMode
-                ? "text-white/25"
+                ? "text-emerald-400/25"
                 : "text-foreground/50 dark:text-foreground/40",
             )}
             style={{
@@ -181,9 +232,11 @@ export default function HomePage({ onTabChange, devMode }) {
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           {devMode && (
             <div className="glass inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium mb-6 studio-rise">
-              <Sparkles className="h-3.5 w-3.5 text-white/70" />
+              <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
               <span className="gradient-text font-semibold">Dev Mode</span>
-              <span className="text-muted-foreground">— built for design lovers</span>
+              <span className="text-muted-foreground">
+                — built for design lovers
+              </span>
             </div>
           )}
 
@@ -216,7 +269,9 @@ export default function HomePage({ onTabChange, devMode }) {
           <p
             className={cn(
               "text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed",
-              devMode ? "text-muted-foreground studio-rise" : "text-muted-foreground",
+              devMode
+                ? "text-muted-foreground studio-rise"
+                : "text-muted-foreground",
             )}
             style={devMode ? { animationDelay: "0.1s" } : undefined}
           >
@@ -239,7 +294,9 @@ export default function HomePage({ onTabChange, devMode }) {
                   ? "text-[#0b0d10] studio-glow-strong shimmer-hover hover:-translate-y-0.5"
                   : "bg-foreground text-background hover:opacity-90",
               )}
-              style={devMode ? { background: "var(--dev-gradient)" } : undefined}
+              style={
+                devMode ? { background: "var(--dev-fill)" } : undefined
+              }
             >
               Open JSON Formatter →
             </button>
@@ -252,7 +309,7 @@ export default function HomePage({ onTabChange, devMode }) {
               className={cn(
                 "px-6 py-2.5 rounded-xl border font-medium text-base transition-all duration-200 w-full sm:w-auto",
                 devMode
-                  ? "glass text-white hover:bg-white/10 hover:-translate-y-0.5"
+                  ? "glass text-emerald-100 hover:bg-emerald-400/10 hover:-translate-y-0.5"
                   : "border-border text-foreground hover:bg-accent",
               )}
             >
@@ -272,16 +329,16 @@ export default function HomePage({ onTabChange, devMode }) {
               <div
                 key={label}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-2xl border backdrop-blur-sm hover:-translate-y-1 transition-all duration-200",
+                  "flex flex-col items-center gap-2 p-4 rounded-2xl border hover:-translate-y-1 transition-all duration-200",
                   devMode
-                    ? "glass hover:bg-white/8"
-                    : "border-border bg-card/60 hover:shadow-md",
+                    ? "glass hover:bg-emerald-400/10"
+                    : "border-border bg-card/60 backdrop-blur-sm hover:shadow-md",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    devMode ? "text-white/70" : "text-muted-foreground",
+                    devMode ? "text-emerald-300" : "text-muted-foreground",
                   )}
                 />
                 <span className="text-sm font-medium">{label}</span>
@@ -329,7 +386,7 @@ export default function HomePage({ onTabChange, devMode }) {
                   "group relative text-left p-6 rounded-2xl border transition-all duration-300 overflow-hidden",
                   "hover:-translate-y-2 hover:shadow-2xl",
                   devMode
-                    ? "glass gradient-border border-white/10 hover:bg-white/6"
+                    ? "glass gradient-border hover:bg-emerald-400/8"
                     : cn(
                         "border bg-card",
                         tool.border,
@@ -364,7 +421,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       className={cn(
                         "w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-300",
                         devMode
-                          ? "glass-strong border-white/10 group-hover:scale-110"
+                          ? "glass-strong group-hover:scale-110"
                           : cn(
                               tool.iconBg,
                               "border-border group-hover:scale-110",
@@ -374,7 +431,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       <Icon
                         className={cn(
                           "h-5 w-5 transition-all",
-                          devMode ? "text-white/80" : tool.color,
+                          devMode ? "text-emerald-300" : tool.color,
                         )}
                       />
                     </div>
@@ -382,7 +439,7 @@ export default function HomePage({ onTabChange, devMode }) {
                       className={cn(
                         "text-xs px-2 py-1 rounded-full border font-medium opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0",
                         devMode
-                          ? "border-white/15 text-white/70 bg-white/5"
+                          ? "border-emerald-400/25 text-emerald-300 bg-emerald-400/5"
                           : cn(
                               "border-border text-muted-foreground",
                               tool.color.replace("text-", "text-"),
@@ -410,7 +467,7 @@ export default function HomePage({ onTabChange, devMode }) {
                     <span
                       className={cn(
                         "transition-transform group-hover:translate-x-1",
-                        devMode && "text-white/80",
+                        devMode && "text-emerald-300",
                       )}
                     >
                       →
@@ -481,7 +538,7 @@ function LiveJsonPreview({ devMode }) {
       className={cn(
         "rounded-2xl border overflow-hidden text-left max-w-lg mx-auto shadow-lg",
         devMode
-          ? "glass-strong studio-glow border-white/10"
+          ? "glass-strong studio-glow"
           : "border-border bg-card/80 backdrop-blur",
       )}
     >
@@ -489,7 +546,7 @@ function LiveJsonPreview({ devMode }) {
         className={cn(
           "flex items-center gap-1.5 px-4 py-3 border-b text-sm",
           devMode
-            ? "border-white/10 bg-white/3"
+            ? "border-emerald-400/20 bg-black"
             : "border-border bg-background/50",
         )}
       >
@@ -499,7 +556,7 @@ function LiveJsonPreview({ devMode }) {
         <span
           className={cn(
             "ml-2 text-xs font-mono",
-            devMode ? "text-white/50" : "text-muted-foreground",
+            devMode ? "text-emerald-400/60" : "text-muted-foreground",
           )}
         >
           json-formatter.js
@@ -510,7 +567,7 @@ function LiveJsonPreview({ devMode }) {
           <div
             className={cn(
               "text-xs mb-2 font-medium font-mono",
-              devMode ? "text-white/40" : "text-muted-foreground",
+              devMode ? "text-emerald-400/50" : "text-muted-foreground",
             )}
           >
             Input
@@ -528,7 +585,7 @@ function LiveJsonPreview({ devMode }) {
           <div
             className={cn(
               "text-xs mb-2 font-medium font-mono",
-              devMode ? "text-white/40" : "text-muted-foreground",
+              devMode ? "text-emerald-400/50" : "text-muted-foreground",
             )}
           >
             Formatted ✓

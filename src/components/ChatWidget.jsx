@@ -151,7 +151,8 @@ export default function ChatWidget() {
       if (err.name === "AbortError") {
         // user-initiated stop — keep whatever streamed in so far
       } else {
-        const message = err.message || "Something went wrong talking to Gemini.";
+        const message =
+          err.message || "Something went wrong talking to Gemini.";
         setMessages((prev) => {
           const withoutEmptyPlaceholder = prev.filter(
             (m) => m.id !== assistantId || m.text,
@@ -374,197 +375,199 @@ export default function ChatWidget() {
             )}
           >
             <div className={cn("w-full space-y-4", isExpanded && "max-w-2xl")}>
-            {!keyConfigured && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>
-                  No Gemini API key configured. Add{" "}
-                  <code className="font-mono">VITE_GEMINI_API_KEY_1</code> to
-                  your <code className="font-mono">.env</code> file and
-                  restart the dev server.
-                </span>
-              </div>
-            )}
+              {!keyConfigured && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    No API key configured. Add{" "}
+                    <code className="font-mono">VITE_GEMINI_API_KEY_1</code> to
+                    your <code className="font-mono">.env</code> file and
+                    restart the dev server.
+                  </span>
+                </div>
+              )}
 
-            {messages.length === 0 && keyConfigured && (
-              <div className="h-full flex flex-col items-center justify-center text-center py-10">
-                <Bot className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                <p className="text-sm font-medium">Ask me anything</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-[240px]">
-                  I can help with JSON, SQL, diffing, Base64, JWTs, or general
-                  coding questions.
-                </p>
-              </div>
-            )}
+              {messages.length === 0 && keyConfigured && (
+                <div className="h-full flex flex-col items-center justify-center text-center py-10">
+                  <Bot className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm font-medium">Ask me anything</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-[240px]">
+                    I can help with JSON, SQL, diffing, Base64, JWTs, or general
+                    coding questions.
+                  </p>
+                </div>
+              )}
 
-            {messages.map((m, mi) => {
-              const isLastAssistant =
-                m.role === "model" &&
-                mi === messages.length - 1 &&
-                m.text &&
-                !isStreaming;
-              const isEditing = editingId === m.id;
+              {messages.map((m, mi) => {
+                const isLastAssistant =
+                  m.role === "model" &&
+                  mi === messages.length - 1 &&
+                  m.text &&
+                  !isStreaming;
+                const isEditing = editingId === m.id;
 
-              return (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "group flex flex-col gap-1",
-                    m.role === "user" ? "items-end" : "items-start",
-                  )}
-                >
+                return (
                   <div
+                    key={m.id}
                     className={cn(
-                      "flex gap-2 w-full",
-                      m.role === "user" ? "justify-end" : "justify-start",
+                      "group flex flex-col gap-1",
+                      m.role === "user" ? "items-end" : "items-start",
                     )}
                   >
-                    {m.role === "model" && (
-                      <div className="h-6 w-6 rounded-full bg-foreground text-background flex items-center justify-center shrink-0 mt-0.5">
-                        <Bot className="h-3.5 w-3.5" />
+                    <div
+                      className={cn(
+                        "flex gap-2 w-full",
+                        m.role === "user" ? "justify-end" : "justify-start",
+                      )}
+                    >
+                      {m.role === "model" && (
+                        <div className="h-6 w-6 rounded-full bg-foreground text-background flex items-center justify-center shrink-0 mt-0.5">
+                          <Bot className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+
+                      {isEditing ? (
+                        <div className="max-w-[85%] w-full">
+                          <textarea
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleEditSave(m.id);
+                              }
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                            autoFocus
+                            rows={2}
+                            className="w-full resize-none rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring/30"
+                          />
+                          <div className="flex items-center justify-end gap-2 mt-1.5">
+                            <button
+                              onClick={cancelEdit}
+                              className="px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleEditSave(m.id)}
+                              disabled={!editDraft.trim()}
+                              className="px-2.5 py-1 rounded-md text-xs font-medium bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-40"
+                            >
+                              Save &amp; resend
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-2xl px-3.5 py-2.5",
+                            m.role === "user"
+                              ? "bg-foreground text-background rounded-br-md"
+                              : "bg-muted rounded-bl-md",
+                            m.failed && "opacity-60",
+                          )}
+                        >
+                          {m.text ? (
+                            <ChatMessageContent text={m.text} />
+                          ) : (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {m.failed && (
+                      <div className="flex items-center gap-2 pr-0.5">
+                        <span className="text-xs text-red-500">
+                          {m.errorMessage || "Failed to send."}
+                        </span>
+                        <button
+                          onClick={() => handleRetry(m.id)}
+                          disabled={isStreaming}
+                          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                        >
+                          <RotateCw className="h-3 w-3" /> Retry
+                        </button>
                       </div>
                     )}
 
-                    {isEditing ? (
-                      <div className="max-w-[85%] w-full">
-                        <textarea
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleEditSave(m.id);
-                            }
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          autoFocus
-                          rows={2}
-                          className="w-full resize-none rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring/30"
-                        />
-                        <div className="flex items-center justify-end gap-2 mt-1.5">
-                          <button
-                            onClick={cancelEdit}
-                            className="px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleEditSave(m.id)}
-                            disabled={!editDraft.trim()}
-                            className="px-2.5 py-1 rounded-md text-xs font-medium bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-40"
-                          >
-                            Save &amp; resend
-                          </button>
-                        </div>
+                    {!isEditing && m.role === "user" && !m.failed && (
+                      <div className="flex items-center gap-0.5 pr-0.5 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleCopyMessage(m)}
+                          title="Copy"
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        >
+                          {copiedId === m.id ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => startEdit(m)}
+                          disabled={isStreaming}
+                          title="Edit &amp; resend"
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
                       </div>
-                    ) : (
-                      <div
-                        className={cn(
-                          "max-w-[85%] rounded-2xl px-3.5 py-2.5",
-                          m.role === "user"
-                            ? "bg-foreground text-background rounded-br-md"
-                            : "bg-muted rounded-bl-md",
-                          m.failed && "opacity-60",
+                    )}
+
+                    {!isEditing && m.role === "model" && m.text && (
+                      <div className="flex items-center gap-0.5 pl-8">
+                        <button
+                          onClick={() => handleCopyMessage(m)}
+                          title="Copy"
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        >
+                          {copiedId === m.id ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                        {ttsSupported && (
+                          <button
+                            onClick={() =>
+                              speakingId === m.id
+                                ? stopSpeaking()
+                                : speak(m.text, m.id)
+                            }
+                            title={
+                              speakingId === m.id
+                                ? "Stop reading"
+                                : "Read aloud"
+                            }
+                            className={cn(
+                              "p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
+                              speakingId === m.id && "text-blue-500",
+                            )}
+                          >
+                            {speakingId === m.id ? (
+                              <VolumeX className="h-3 w-3" />
+                            ) : (
+                              <Volume2 className="h-3 w-3" />
+                            )}
+                          </button>
                         )}
-                      >
-                        {m.text ? (
-                          <ChatMessageContent text={m.text} />
-                        ) : (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        {isLastAssistant && (
+                          <button
+                            onClick={() => handleRegenerate(m.id)}
+                            disabled={isStreaming}
+                            title="Regenerate response"
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+                          >
+                            <RotateCw className="h-3 w-3" />
+                          </button>
                         )}
                       </div>
                     )}
                   </div>
-
-                  {m.failed && (
-                    <div className="flex items-center gap-2 pr-0.5">
-                      <span className="text-xs text-red-500">
-                        {m.errorMessage || "Failed to send."}
-                      </span>
-                      <button
-                        onClick={() => handleRetry(m.id)}
-                        disabled={isStreaming}
-                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-                      >
-                        <RotateCw className="h-3 w-3" /> Retry
-                      </button>
-                    </div>
-                  )}
-
-                  {!isEditing && m.role === "user" && !m.failed && (
-                    <div className="flex items-center gap-0.5 pr-0.5 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleCopyMessage(m)}
-                        title="Copy"
-                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      >
-                        {copiedId === m.id ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => startEdit(m)}
-                        disabled={isStreaming}
-                        title="Edit &amp; resend"
-                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-
-                  {!isEditing && m.role === "model" && m.text && (
-                    <div className="flex items-center gap-0.5 pl-8">
-                      <button
-                        onClick={() => handleCopyMessage(m)}
-                        title="Copy"
-                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      >
-                        {copiedId === m.id ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </button>
-                      {ttsSupported && (
-                        <button
-                          onClick={() =>
-                            speakingId === m.id
-                              ? stopSpeaking()
-                              : speak(m.text, m.id)
-                          }
-                          title={
-                            speakingId === m.id ? "Stop reading" : "Read aloud"
-                          }
-                          className={cn(
-                            "p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
-                            speakingId === m.id && "text-blue-500",
-                          )}
-                        >
-                          {speakingId === m.id ? (
-                            <VolumeX className="h-3 w-3" />
-                          ) : (
-                            <Volume2 className="h-3 w-3" />
-                          )}
-                        </button>
-                      )}
-                      {isLastAssistant && (
-                        <button
-                          onClick={() => handleRegenerate(m.id)}
-                          disabled={isStreaming}
-                          title="Regenerate response"
-                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
-                        >
-                          <RotateCw className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           </div>
 

@@ -15,6 +15,23 @@ import {
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
+import PencilLoader from "../components/PencilLoader";
+
+// Minimum time the pencil loader stays visible, so fast conversions don't
+// just flash a spinner for a frame — this is purely a UX pace-setter, not
+// real work time.
+const MIN_LOADER_MS = 1200;
+
+function elapsedSince(start) {
+  return Date.now() - start;
+}
+
+async function waitOutMinDuration(start, minMs) {
+  const remaining = minMs - elapsedSince(start);
+  if (remaining > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remaining));
+  }
+}
 
 // ─── MIME helpers ─────────────────────────────────────────────────────────────
 
@@ -534,6 +551,7 @@ export default function Base64Converter() {
       setDecodeResult(null);
       setIsDecoding(true);
       setDecodeProgress(10);
+      const startedAt = Date.now();
 
       // Let the UI paint loader before heavy work for very large strings.
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -547,6 +565,7 @@ export default function Base64Converter() {
         setDecodeError(
           "Invalid Base64 string. Check for spaces or illegal characters.",
         );
+        await waitOutMinDuration(startedAt, MIN_LOADER_MS);
         setIsDecoding(false);
         setDecodeProgress(0);
         return;
@@ -564,10 +583,9 @@ export default function Base64Converter() {
       } catch (e) {
         setDecodeError("Conversion failed: " + e.message);
       } finally {
-        setTimeout(() => {
-          setIsDecoding(false);
-          setDecodeProgress(0);
-        }, 150);
+        await waitOutMinDuration(startedAt, MIN_LOADER_MS);
+        setIsDecoding(false);
+        setDecodeProgress(0);
       }
     },
     [decodeInput, manualMime],
@@ -640,6 +658,7 @@ export default function Base64Converter() {
     setIsEncoding(true);
     setEncodeProgress(0);
     setShowFullEncodeOutput(false);
+    const startedAt = Date.now();
     try {
       const dataUrl = await blobToBase64(file, setEncodeProgress);
       setEncodeOutput(dataUrl);
@@ -648,9 +667,8 @@ export default function Base64Converter() {
       setEncodeError("Failed to read file: " + err.message);
       setEncodeProgress(0);
     } finally {
-      setTimeout(() => {
-        setIsEncoding(false);
-      }, 150);
+      await waitOutMinDuration(startedAt, MIN_LOADER_MS);
+      setIsEncoding(false);
     }
     if (e.target?.value !== undefined) e.target.value = "";
   };
@@ -1015,12 +1033,7 @@ export default function Base64Converter() {
 
             <div className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card flex items-center justify-center overflow-hidden">
               {isDecoding && (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="text-xs font-medium">
-                    Decoding... {decodeProgress}%
-                  </span>
-                </div>
+                <PencilLoader label={`Decoding... ${decodeProgress}%`} />
               )}
               {!isDecoding && !decodeResult && (
                 <span className="text-muted-foreground text-sm text-center">
@@ -1308,10 +1321,11 @@ export default function Base64Converter() {
               )}
             >
               {isEncoding ? (
-                <span className="text-muted-foreground text-sm inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Converting file to Base64... {encodeProgress}%
-                </span>
+                <div className="w-full h-full min-h-50 flex items-center justify-center">
+                  <PencilLoader
+                    label={`Converting to Base64... ${encodeProgress}%`}
+                  />
+                </div>
               ) : displayOutput ? (
                 <span className="text-foreground dark:text-green-400 leading-relaxed">
                   {encodeOutputValue}

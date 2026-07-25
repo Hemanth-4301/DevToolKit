@@ -135,7 +135,7 @@ async function streamBody(body, onChunk, signal) {
 export async function streamChat(history, onChunk, signal) {
   if (!hasGeminiKey()) {
     throw new Error(
-      "No Gemini API key configured. Add VITE_GEMINI_API_KEY_1 (and _2, _3, ...) to your .env file and restart the dev server.",
+      "No API key configured.",
     );
   }
 

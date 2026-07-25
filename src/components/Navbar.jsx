@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { Terminal, Sun, Moon, Menu, X, Cpu } from "lucide-react";
+import { Terminal, Menu, X, Cpu } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../hooks/use-theme";
+import ThemeSwitch from "./ThemeSwitch";
 
 const TABS = [
   { id: "home", label: "Home" },
@@ -113,10 +114,10 @@ export default function Navbar({
   return (
     <nav
       className={cn(
-        "sticky top-0 z-40 w-full border-b backdrop-blur-xl transition-colors",
+        "sticky top-0 z-40 w-full border-b transition-colors",
         devMode
-          ? "border-white/10 bg-[#0a0a12]/75"
-          : "border-border bg-background/80",
+          ? "border-emerald-400/30 bg-black"
+          : "border-border bg-background/80 backdrop-blur-xl",
       )}
     >
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-5 h-14 flex items-center justify-between gap-3">
@@ -127,13 +128,16 @@ export default function Navbar({
           <div
             className={cn(
               "flex items-center justify-center w-7 h-7 rounded-lg transition-all",
-              devMode
-                ? "studio-glow"
-                : "bg-foreground text-background",
+              devMode ? "studio-glow" : "bg-foreground text-background",
             )}
-            style={devMode ? { background: "var(--dev-gradient)" } : undefined}
+            style={devMode ? { background: "var(--dev-fill)" } : undefined}
           >
-            <Terminal className={cn("h-4 w-4", devMode ? "text-[#0b0d10]" : "text-white")} />
+            <Terminal
+              className={cn(
+                "h-4 w-4",
+                devMode ? "text-black" : "text-background",
+              )}
+            />
           </div>
           <div className="hidden sm:block">
             <span
@@ -143,9 +147,6 @@ export default function Navbar({
               )}
             >
               DevToolkit
-            </span>
-            <span className="text-xs text-muted-foreground ml-1.5 hidden lg:inline">
-              Your all-in-one dev utilities
             </span>
           </div>
         </button>
@@ -160,7 +161,7 @@ export default function Navbar({
               className={cn(
                 "absolute top-1/2 h-8 rounded-lg pointer-events-none",
                 "transition-[left,width,opacity] duration-500 ease-[cubic-bezier(0.65,0,0.35,1)]",
-                devMode ? "bg-white/10" : "bg-accent",
+                devMode ? "bg-emerald-400/10" : "bg-accent",
               )}
               style={{
                 left: indicator.left,
@@ -176,10 +177,12 @@ export default function Navbar({
                 devMode ? "" : "bg-foreground",
               )}
               style={{
-                left: indicator.width ? indicator.left + indicator.width / 2 - 10 : 0,
+                left: indicator.width
+                  ? indicator.left + indicator.width / 2 - 10
+                  : 0,
                 width: indicator.width ? 20 : 0,
                 opacity: indicator.opacity,
-                background: devMode ? "var(--dev-gradient)" : undefined,
+                background: devMode ? "var(--dev-fill)" : undefined,
               }}
             />
             {TABS.filter((t) => t.id !== "home").map((tab) => (
@@ -203,37 +206,25 @@ export default function Navbar({
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200",
               devMode
-                ? "border-white/15 text-white studio-glow shimmer-hover"
+                ? "border-emerald-400/40 text-emerald-300 studio-glow shimmer-hover"
                 : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
-            style={devMode ? { background: "rgba(255,255,255,0.08)" } : undefined}
+            style={devMode ? { background: "hsl(var(--dev-cyan) / 0.06)" } : undefined}
           >
             <Cpu className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">
               {devMode ? "EXIT DEV" : "DEV MODE"}
             </span>
           </button>
-          <button
-            onClick={toggle}
-            className={cn(
-              "p-2 rounded-lg transition-all",
-              devMode
-                ? "text-white/60 hover:text-white hover:bg-white/8"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent",
-            )}
-            title="Toggle theme"
-          >
-            {theme === "dark" || devMode ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </button>
+          <ThemeSwitch
+            checked={theme === "dark" || devMode}
+            onChange={toggle}
+          />
           <button
             className={cn(
               "lg:hidden p-2 rounded-lg transition-all",
               devMode
-                ? "text-white/60 hover:text-white hover:bg-white/8"
+                ? "text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-400/10"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -250,10 +241,10 @@ export default function Navbar({
       {mobileOpen && (
         <div
           className={cn(
-            "lg:hidden border-t backdrop-blur-xl",
+            "lg:hidden border-t",
             devMode
-              ? "border-white/10 bg-[#0a0a12]/95"
-              : "border-border bg-background/95",
+              ? "border-emerald-400/30 bg-black"
+              : "border-border bg-background/95 backdrop-blur-xl",
           )}
         >
           {TABS.map((tab) => (
@@ -267,10 +258,10 @@ export default function Navbar({
                 "w-full text-left px-4 py-3 text-sm transition-colors",
                 activeTab === tab.id
                   ? devMode
-                    ? "bg-white/10 text-white font-medium"
+                    ? "bg-emerald-400/10 text-emerald-300 font-medium"
                     : "bg-accent text-foreground font-medium"
                   : devMode
-                    ? "text-white/55 hover:bg-white/5 hover:text-white"
+                    ? "text-emerald-400/60 hover:bg-emerald-400/5 hover:text-emerald-300"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
             >
@@ -280,7 +271,7 @@ export default function Navbar({
           <div
             className={cn(
               "px-4 py-2 border-t",
-              devMode ? "border-white/10" : "border-border",
+              devMode ? "border-emerald-400/30" : "border-border",
             )}
           >
             <button
@@ -309,10 +300,10 @@ function NavTab({ tab, isActive, devMode, glowKey, onClick, registerRef }) {
         "px-3 py-1.5 text-sm rounded-lg transition-colors duration-200 relative whitespace-nowrap z-10",
         isActive
           ? devMode
-            ? "text-white font-medium"
+            ? "text-emerald-300 font-medium"
             : "text-foreground font-medium"
           : devMode
-            ? "text-white/55 hover:text-white"
+            ? "text-emerald-400/50 hover:text-emerald-300"
             : "text-muted-foreground hover:text-foreground",
       )}
     >

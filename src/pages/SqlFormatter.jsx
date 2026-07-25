@@ -1113,7 +1113,7 @@ export default function SqlFormatter() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+          {/* <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
             {["end", "start"].map((p) => (
               <button
                 key={p}
@@ -1128,7 +1128,7 @@ export default function SqlFormatter() {
                 Comma {p}
               </button>
             ))}
-          </div>
+          </div> */}
 
           <button
             onClick={handleMinify}

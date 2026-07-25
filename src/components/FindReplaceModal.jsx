@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   X,
   Search,
@@ -9,22 +9,6 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "./Toast";
-
-// Tracks the last real mousedown target's screen position, capture-phase so
-// it always runs before the "open modal" onClick handler fires. This lets
-// the modal animate outward from whatever button the user actually clicked,
-// without every call site having to pass a ref down.
-let lastPointerRect = null;
-if (typeof window !== "undefined") {
-  window.addEventListener(
-    "mousedown",
-    (e) => {
-      const el = e.target.closest("button, [role='button']");
-      lastPointerRect = el ? el.getBoundingClientRect() : null;
-    },
-    true,
-  );
-}
 
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -84,22 +68,12 @@ export default function FindReplaceModal({
   const [replaceWith, setReplaceWith] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [syncBoth, setSyncBoth] = useState(false);
-  const [flyVars, setFlyVars] = useState(null); // CSS custom props computed from trigger → resting position
   // "Replace" (single-occurrence) cursor, tracked per target index so
   // syncing both input and output doesn't let one pane's match position
   // clobber the other's.
   const cursorsRef = useRef([0, 0]);
   const findInputRef = useRef(null);
   const modalRef = useRef(null);
-  const triggerRectOnOpen = useRef(null);
-  // Snapshot the trigger's rect synchronously during render (not in an
-  // effect) so it's captured before the layout effect below runs on the
-  // same commit — effect ordering would otherwise race the mousedown tracker.
-  const openedRef = useRef(false);
-  if (open && !openedRef.current) {
-    triggerRectOnOpen.current = lastPointerRect;
-  }
-  openedRef.current = open;
 
   useEffect(() => {
     if (open) {
@@ -109,33 +83,8 @@ export default function FindReplaceModal({
         50,
       );
       return () => clearTimeout(focusTimer);
-    } else {
-      setFlyVars(null);
     }
   }, [open]);
-
-  // Measure the modal's resting position after it mounts, then derive the
-  // translate/scale offset that makes it appear to fly out of the button
-  // that was clicked. With no real trigger (e.g. the Ctrl+H hotkey), skip
-  // the travel distance entirely — that path should feel instant, not like
-  // it's flying in slowly from nowhere.
-  useLayoutEffect(() => {
-    if (!open || !modalRef.current || flyVars) return;
-    const trigger = triggerRectOnOpen.current;
-    if (!trigger) {
-      setFlyVars({ "--fr-from-x": "0px", "--fr-from-y": "0px" });
-      return;
-    }
-    const modalRect = modalRef.current.getBoundingClientRect();
-    const tx = trigger.left + trigger.width / 2;
-    const ty = trigger.top + trigger.height / 2;
-    const originX = tx - (modalRect.left + modalRect.width / 2);
-    const originY = ty - (modalRect.top + modalRect.height / 2);
-    setFlyVars({
-      "--fr-from-x": `${originX}px`,
-      "--fr-from-y": `${originY}px`,
-    });
-  }, [open, flyVars]);
 
   useEffect(() => {
     if (!open) return;
@@ -246,13 +195,7 @@ export default function FindReplaceModal({
     <div className="fixed inset-0 z-100 pointer-events-none flex items-start justify-end overflow-hidden p-3 sm:p-4">
       <div
         ref={modalRef}
-        style={flyVars || undefined}
-        className={cn(
-          "fr-modal relative w-full max-w-xs sm:max-w-sm rounded-xl shadow-2xl pointer-events-auto",
-          !flyVars && "opacity-0",
-          flyVars &&
-            (triggerRectOnOpen.current ? "fr-modal-fly" : "fr-modal-quick"),
-        )}
+        className="fr-modal fr-modal-fly relative w-full max-w-xs sm:max-w-sm rounded-xl shadow-2xl pointer-events-auto"
       >
         <div className="relative rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">

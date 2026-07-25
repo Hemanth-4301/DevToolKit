@@ -8,7 +8,6 @@ import StringifyConverter from "./pages/StringifyConverter";
 import DiffChecker from "./pages/DiffChecker";
 import JwtDecoder from "./pages/JwtDecoder";
 import { ToastContainer } from "./components/Toast";
-import GradientMesh from "./components/GradientMesh";
 import ChatWidget from "./components/ChatWidget";
 import PinUnlockModal from "./components/PinUnlockModal";
 
@@ -58,7 +57,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <GradientMesh active={devMode} />
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}

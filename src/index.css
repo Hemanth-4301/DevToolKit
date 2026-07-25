@@ -172,181 +172,166 @@
   --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.45);
 }
 
-/* ── DEV MODE (glassmorphic, monochrome) ── */
-.dev-mode {
-  --background: 220 20% 5%;
-  --foreground: 210 20% 97%;
-  --border: 220 14% 22%;
-  --card: 220 16% 9%;
-  --card-foreground: 210 20% 97%;
-  --card-border: 220 14% 20%;
-  --popover: 220 18% 8%;
-  --popover-foreground: 210 20% 97%;
-  --popover-border: 220 14% 20%;
-  --primary: 210 16% 88%;
-  --primary-foreground: 220 20% 8%;
-  --secondary: 220 14% 15%;
-  --secondary-foreground: 210 20% 97%;
-  --muted: 220 14% 13%;
-  --muted-foreground: 215 12% 65%;
-  --accent: 220 14% 16%;
-  --accent-foreground: 210 20% 97%;
-  --destructive: 350 70% 58%;
+/* ── DEV MODE (neon terminal, green-only, no glow) ──
+   Flat, sharp-edged surfaces — no blur, no transparency-as-depth, no
+   box-shadow/drop-shadow/text-shadow glow anywhere. Depth and personality
+   come only from solid near-black panels plus a single crisp green border
+   color that brightens on hover/focus — nothing else changes color. */
+html.dev-mode {
+  --background: 240 30% 3%;
+  --foreground: 150 20% 92%;
+  --border: 142 100% 45%;
+  --card: 240 24% 6%;
+  --card-foreground: 150 20% 92%;
+  --card-border: 142 60% 22%;
+  --popover: 240 26% 5%;
+  --popover-foreground: 150 20% 92%;
+  --popover-border: 142 60% 24%;
+  --primary: 142 100% 45%;
+  --primary-foreground: 240 30% 4%;
+  --secondary: 240 22% 10%;
+  --secondary-foreground: 150 20% 92%;
+  --muted: 240 20% 9%;
+  --muted-foreground: 142 15% 62%;
+  --accent: 240 22% 12%;
+  --accent-foreground: 142 100% 55%;
+  --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 100%;
-  --input: 220 14% 20%;
-  --ring: 210 16% 80%;
-  --sidebar: 220 20% 5%;
-  --sidebar-foreground: 210 20% 97%;
-  --sidebar-border: 220 14% 18%;
-  --sidebar-primary: 210 16% 85%;
-  --sidebar-primary-foreground: 220 20% 8%;
-  --sidebar-accent: 220 14% 15%;
-  --sidebar-accent-foreground: 210 20% 97%;
-  --sidebar-ring: 210 16% 80%;
+  --input: 142 40% 18%;
+  --ring: 142 100% 45%;
+  --sidebar: 240 30% 3%;
+  --sidebar-foreground: 150 20% 92%;
+  --sidebar-border: 142 60% 20%;
+  --sidebar-primary: 142 100% 45%;
+  --sidebar-primary-foreground: 240 30% 4%;
+  --sidebar-accent: 240 22% 10%;
+  --sidebar-accent-foreground: 142 100% 55%;
+  --sidebar-ring: 142 100% 45%;
 
-  --dev-slate: 215 20% 55%;
-  --dev-white: 210 20% 97%;
-  --dev-gradient: linear-gradient(135deg, hsl(215 18% 60%), hsl(210 25% 92%) 50%, hsl(0 0% 100%));
+  --dev-cyan: 142 100% 45%;
+  --dev-fill: hsl(var(--dev-cyan));
+  --dev-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   color-scheme: dark;
 }
 
-/* ── AMBIENT GRADIENT MESH BACKDROP ── */
-.gradient-mesh-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
+/* Flat black backdrop — no ambient glow or gradient wash. */
+html.dev-mode body {
+  background: hsl(var(--background));
 }
 
-.gradient-mesh-canvas .mesh-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.35;
-  will-change: transform;
+/* ── KILL ALL GLASSMORPHISM, EVERYWHERE, NO EXCEPTIONS ──
+   Several components apply Tailwind's `backdrop-blur-*` unconditionally
+   (Navbar's sticky bar, HomePage stat cards, ScrollToTop, every fullscreen
+   overlay scrim) as part of the base design — those aren't gated behind
+   `devMode` in JSX, so Dev Mode inherited the blur-behind-content "glass"
+   look by default. This blanket override removes backdrop-filter from
+   every element in Dev Mode, full stop — surfaces are flat solid fills. */
+html.dev-mode * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-@keyframes mesh-drift-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(6%, 8%) scale(1.12); }
-}
-@keyframes mesh-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-8%, 5%) scale(1.08); }
-}
-@keyframes mesh-drift-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(4%, -7%) scale(1.15); }
+/* ── FLAT NEON SURFACE (replaces the old .glass / .glass-strong) ──
+   Solid dark fill, crisp 1px green border — no glow, no blur. */
+html.dev-mode .glass {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--dev-cyan) / 0.35);
 }
 
-/* ── GLASS SURFACE ── */
-.dev-mode .glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+html.dev-mode .glass-strong {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--dev-cyan) / 0.55);
 }
 
-.dev-mode .glass-strong {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+/* ── DEV-MODE GLOBAL MOTION FEEL ──
+   Snappier, more mechanical timing than the default UI — reads like a
+   terminal responding to keystrokes, not a soft consumer-app fade. */
+html.dev-mode * {
+  transition-timing-function: var(--dev-ease);
+}
+html.dev-mode button,
+html.dev-mode a,
+html.dev-mode select,
+html.dev-mode input,
+html.dev-mode textarea,
+html.dev-mode [role="button"] {
+  transition-duration: 0.15s;
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity, text-shadow;
 }
 
-/* ── GRADIENT TEXT / GLOW UTILITIES ── */
-.dev-mode .gradient-text {
-  background: var(--dev-gradient);
+/* ── NEON TEXT UTILITIES (flat color, no glow) ── */
+html.dev-mode .gradient-text {
+  background: var(--dev-fill);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.dev-mode .studio-glow {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 30px rgba(0, 0, 0, 0.45);
+html.dev-mode .studio-glow {
+  box-shadow: 0 0 0 1px hsl(var(--dev-cyan) / 0.4);
 }
 
-.dev-mode .studio-glow-strong {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 60px rgba(255, 255, 255, 0.06);
+html.dev-mode .studio-glow-strong {
+  box-shadow: 0 0 0 1px hsl(var(--dev-cyan) / 0.55);
 }
 
-/* ── GRADIENT BORDER ON HOVER ── */
-.dev-mode .gradient-border {
+/* ── NEON BORDER ON HOVER (replaces gradient-border glass sheen) ── */
+html.dev-mode .gradient-border {
   position: relative;
   isolation: isolate;
+  border: 1px solid hsl(var(--dev-cyan) / 0.18) !important;
 }
 
-.dev-mode .gradient-border::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--dev-gradient);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
+html.dev-mode .gradient-border::before {
+  content: none;
 }
 
-.dev-mode .gradient-border:hover::before {
-  opacity: 1;
+html.dev-mode .gradient-border:hover {
+  border-color: hsl(var(--dev-cyan) / 0.7) !important;
 }
 
-/* ── SHIMMER SWEEP (subtle, on hover only) ── */
+/* ── SCANLINE SWEEP (replaces the soft glass shimmer) ──
+   A hard-edged green line sweeps across on hover, like a terminal cursor
+   or a CRT refresh — flat fill, no glow. */
 @keyframes shimmer-sweep {
-  0% { transform: translateX(-120%) skewX(-15deg); }
-  100% { transform: translateX(220%) skewX(-15deg); }
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
 }
 
-.dev-mode .shimmer-hover {
+html.dev-mode .shimmer-hover {
   position: relative;
   overflow: hidden;
 }
 
-.dev-mode .shimmer-hover::after {
+html.dev-mode .shimmer-hover::after {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
-  width: 40%;
+  width: 2px;
   height: 100%;
-  background: linear-gradient(
-    100deg,
-    transparent,
-    rgba(255, 255, 255, 0.16),
-    transparent
-  );
+  background: hsl(var(--dev-cyan));
   opacity: 0;
   pointer-events: none;
 }
 
-.dev-mode .shimmer-hover:hover::after {
+html.dev-mode .shimmer-hover:hover::after {
   opacity: 1;
-  animation: shimmer-sweep 1s ease;
+  animation: shimmer-sweep 0.8s linear;
 }
 
 /* ── FLOAT-IN ── */
 @keyframes studio-rise {
-  0% { opacity: 0; transform: translateY(14px); }
+  0% { opacity: 0; transform: translateY(10px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
-.dev-mode .studio-rise {
-  animation: studio-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+html.dev-mode .studio-rise {
+  animation: studio-rise 0.35s var(--dev-ease) both;
 }
 
 /* ── NAV TAB SWITCH: LANDING GLOW (fires once on switch, then fully clears) ── */
-
-/* Soft glow wash on the pill that was just landed on — no scale, no line,
-   just a brief light wash that fades out. */
 @keyframes tab-landing-pulse {
   0% { box-shadow: 0 0 0 0 var(--tab-glow-color, transparent); opacity: 1; }
   100% { box-shadow: 0 0 0 3px transparent; opacity: 0; }
@@ -357,8 +342,8 @@
   --tab-glow-color: hsl(var(--ring) / 0.4);
 }
 
-.dev-mode .nav-tab-landing {
-  --tab-glow-color: rgba(255, 255, 255, 0.5);
+html.dev-mode .nav-tab-landing {
+  --tab-glow-color: hsl(var(--dev-cyan) / 0.7);
 }
 
 /* ── BASE STYLES ── */
@@ -502,65 +487,249 @@
 }
 
 /* ── DEV-MODE TOOL PAGE OVERRIDES ── */
-.dev-mode .tool-page-title {
-  background: var(--dev-gradient);
+html.dev-mode .tool-page-title {
+  background: var(--dev-fill);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.dev-mode .tool-toolbar {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+html.dev-mode .tool-toolbar {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--dev-cyan) / 0.3);
+  box-shadow: none;
 }
 
-.dev-mode .tool-toolbar::before {
-  background: conic-gradient(
-    from var(--toolbar-angle, 0deg),
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.08) 78%,
-    #64748b 84%,
-    #cbd5e1 89%,
-    #ffffff 93%,
-    #cbd5e1 97%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
+/* The base .tool-toolbar rule draws an animated conic-gradient "spinning
+   border" via ::before/::after (see @layer components above) — Dev Mode
+   disables that entirely and relies only on the plain flat border set
+   above, no gradient/animation anywhere. */
+html.dev-mode .tool-toolbar::before,
+html.dev-mode .tool-toolbar::after {
+  content: none;
+  display: none;
 }
 
-.dev-mode .tool-toolbar::after {
-  background: hsl(var(--card));
+html.dev-mode .tool-editor,
+html.dev-mode .tool-output,
+html.dev-mode textarea,
+html.dev-mode .tool-card {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--dev-cyan) / 0.25) !important;
 }
 
-.dev-mode .tool-editor,
-.dev-mode .tool-output,
-.dev-mode textarea,
-.dev-mode .tool-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(255, 255, 255, 0.09);
+html.dev-mode .tool-editor:focus,
+html.dev-mode textarea:focus {
+  box-shadow: 0 0 0 1px hsl(var(--dev-cyan) / 0.6);
+  border-color: hsl(var(--dev-cyan)) !important;
 }
 
-.dev-mode .tool-editor:focus,
-.dev-mode textarea:focus {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.4);
+/* NOTE ON SELECTOR STYLE BELOW: Tailwind v4's build (Lightning CSS-based)
+   was observed to rewrite/merge plain class selectors that match a known
+   utility name (e.g. `.bg-foreground`, `.bg-muted`) — it silently strips
+   custom ancestor prefixes like `html.dev-mode` from any selector segment
+   it recognizes as "its" utility, which broke these overrides (buttons
+   rendered near-black text on near-black backgrounds). Attribute selectors
+   on the literal class string (`[class~="..."]`) are invisible to that
+   pass and are used everywhere below instead of `.the-utility-name`. */
+
+html.dev-mode .tool-toolbar-action,
+html.dev-mode button[class~="bg-foreground"] {
+  background: var(--dev-fill) !important;
+  background-color: hsl(var(--dev-cyan)) !important;
+  color: #030304 !important;
+  box-shadow: none !important;
+  border: none !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.dev-mode .tool-toolbar-action,
-.dev-mode button.bg-foreground {
-  background: var(--dev-gradient);
-  color: #0b0d10;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  border: none;
+html.dev-mode .tool-toolbar-action:hover,
+html.dev-mode button[class~="bg-foreground"]:hover {
+  filter: brightness(1.15);
 }
 
-.dev-mode ::selection {
-  background: rgba(255, 255, 255, 0.25);
+html.dev-mode ::selection {
+  background: hsl(var(--dev-cyan) / 0.35);
   color: #fff;
+}
+
+/* ── DEV-MODE: EVERY BORDERED / GHOST BUTTON GETS A NEON EDGE ──
+   Toolbar buttons, panel action buttons, and segmented controls all use
+   plain `border-border` / `hover:bg-accent` / `bg-muted` tokens. In neon
+   mode these stay flat black/near-black fills — the personality comes
+   entirely from a crisp 1px green border that brightens on hover, with no
+   glow/shadow of any kind. */
+html.dev-mode button[class~="border-border"]:not([class~="bg-foreground"]),
+html.dev-mode [class~="border-border"] > button:not([class~="bg-foreground"]),
+html.dev-mode select[class~="border-border"],
+html.dev-mode label[class~="border-border"],
+html.dev-mode a[class~="border-border"] {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--dev-cyan) / 0.3) !important;
+}
+
+html.dev-mode button:hover[class~="hover:bg-accent"],
+html.dev-mode button:hover [class~="hover:bg-accent"],
+html.dev-mode a:hover[class~="hover:bg-accent"] {
+  background-color: hsl(var(--dev-cyan) / 0.1) !important;
+  box-shadow: inset 0 0 0 1px hsl(var(--dev-cyan) / 0.5);
+  color: hsl(var(--dev-cyan));
+}
+
+html.dev-mode button[class~="bg-accent"],
+html.dev-mode [class~="bg-accent"] {
+  background-color: hsl(var(--dev-cyan) / 0.14) !important;
+  box-shadow: inset 0 0 0 1px hsl(var(--dev-cyan) / 0.6);
+  color: hsl(var(--dev-cyan));
+}
+
+html.dev-mode [class~="bg-muted"] {
+  background-color: hsl(var(--muted)) !important;
+}
+
+html.dev-mode button:not(.tool-toolbar-action):not([class~="bg-foreground"]):not(:disabled):hover {
+  border-color: hsl(var(--dev-cyan) / 0.8);
+}
+
+html.dev-mode button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Segmented / toggle groups (indent size, key case, view mode, etc.) */
+html.dev-mode .tool-toolbar-main > [class~="flex"][class~="border"][class~="border-border"],
+html.dev-mode [class~="flex"][class~="items-center"][class~="border"][class~="border-border"][class~="rounded-md"],
+html.dev-mode [class~="flex"][class~="items-center"][class~="gap-1"][class~="border"][class~="border-border"] {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--dev-cyan) / 0.3) !important;
+}
+
+/* Bare black/white "alt primary" buttons some tools use
+   (e.g. "Remove Comments", "Find & Replace") — recolor as solid green
+   fill, matching the primary action button, no glow. */
+html.dev-mode button[class~="bg-black"],
+html.dev-mode button[class~="dark:bg-white"] {
+  background: hsl(var(--dev-cyan)) !important;
+  color: #030304 !important;
+  border: none;
+  font-weight: 700;
+}
+html.dev-mode button[class~="bg-black"]:hover,
+html.dev-mode button[class~="dark:bg-white"]:hover {
+  filter: brightness(1.15);
+}
+
+/* Inputs, selects, checkboxes */
+html.dev-mode input,
+html.dev-mode select,
+html.dev-mode [class~="bg-background"] {
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(var(--dev-cyan) / 0.3) !important;
+}
+
+html.dev-mode input:focus,
+html.dev-mode select:focus {
+  box-shadow: 0 0 0 1px hsl(var(--dev-cyan) / 0.6);
+  border-color: hsl(var(--dev-cyan)) !important;
+}
+
+html.dev-mode input[type="checkbox"] {
+  accent-color: hsl(var(--dev-cyan));
+}
+
+/* Cards, panels, badges, popovers — solid flat fill, no blur */
+html.dev-mode [class~="bg-card"],
+html.dev-mode [class~="bg-popover"] {
+  background: hsl(var(--card)) !important;
+}
+
+html.dev-mode [class~="rounded-lg"][class~="border"],
+html.dev-mode [class~="rounded-xl"][class~="border"],
+html.dev-mode [class~="rounded-2xl"][class~="border"] {
+  border-color: hsl(var(--dev-cyan) / 0.25) !important;
+}
+
+/* Clickable summary/history/tool rows: hard left-edge accent instead of a
+   soft background swap — reads like a selected list item in an IDE. */
+html.dev-mode [class~="hover:bg-accent/50"]:hover {
+  background-color: hsl(var(--dev-cyan) / 0.08) !important;
+  box-shadow: inset 2px 0 0 hsl(var(--dev-cyan));
+}
+
+/* ── DIFF CHECKER: hardcoded light-mode hex rows ──
+   These rows use literal light hexes (#dbedff, #f6f8fa, #ffebe9, #ffd7d5,
+   #e6ffec, #abf2bc) with a `dark:` variant that Dev Mode doesn't trigger —
+   recolor as flat overlays. Added/removed keep desaturated red/green since
+   that's semantic diff coloring (same convention the rest of the app
+   uses), not a decorative accent — everything else stays green-only. */
+html.dev-mode [class*="bg-\[#dbedff\]"] {
+  background-color: hsl(var(--dev-cyan) / 0.12) !important;
+}
+html.dev-mode [class*="bg-\[#f6f8fa\]"] {
+  background-color: hsl(var(--muted)) !important;
+}
+html.dev-mode [class*="bg-\[#ffebe9\]"] {
+  background-color: hsl(0 70% 50% / 0.12) !important;
+}
+html.dev-mode [class*="bg-\[#ffd7d5\]"] {
+  background-color: hsl(0 70% 50% / 0.22) !important;
+}
+html.dev-mode [class*="bg-\[#e6ffec\]"] {
+  background-color: hsl(145 60% 45% / 0.12) !important;
+}
+html.dev-mode [class*="bg-\[#abf2bc\]"] {
+  background-color: hsl(145 60% 45% / 0.22) !important;
+}
+
+/* ── FIND & REPLACE / PIN MODAL surfaces ── */
+html.dev-mode .fr-modal,
+html.dev-mode .pin-modal-in {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--dev-cyan) / 0.4) !important;
+  box-shadow: none;
+}
+
+/* ── CHAT WIDGET ── */
+html.dev-mode .chat-panel-surface {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--dev-cyan) / 0.4) !important;
+  box-shadow: none;
+}
+
+html.dev-mode [aria-label*="AI assistant"] {
+  background: var(--dev-fill) !important;
+  color: #030304 !important;
+  box-shadow: none;
+}
+
+/* ── JSON TREE expand/collapse control ── */
+html.dev-mode [class~="h-5"][class~="w-5"][class~="rounded-md"][class~="border"] {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--dev-cyan) / 0.35) !important;
+}
+html.dev-mode [class~="h-5"][class~="w-5"][class~="rounded-md"][class~="border"]:hover {
+  background: hsl(var(--dev-cyan) / 0.12) !important;
+  border-color: hsl(var(--dev-cyan)) !important;
+}
+
+/* ── JSON TREE vertical gutter line ──
+   Uses bg-border/70, which inherits Dev Mode's bright green --border and
+   reads as a heavy solid stripe down the whole tree — keep it, but much
+   fainter than the default theme's neutral divider. */
+html.dev-mode [class~="bg-border/70"] {
+  background-color: hsl(var(--dev-cyan) / 0.15) !important;
+}
+
+/* ── NAV: flat black bar with a green bottom edge, no glow ── */
+html.dev-mode nav[class~="sticky"] {
+  background: hsl(var(--background)) !important;
+  border-bottom: 1px solid hsl(var(--dev-cyan) / 0.35);
+  box-shadow: none;
+}
+
+/* ── FOCUS RING ── */
+html.dev-mode :focus-visible {
+  outline-color: hsl(var(--dev-cyan) / 0.8);
 }
 
 @media (max-width: 640px) {
@@ -593,8 +762,8 @@
 *::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-.dev-mode *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
-.dev-mode *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
+html.dev-mode *::-webkit-scrollbar-thumb { background: hsl(var(--dev-cyan) / 0.3); }
+html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan) / 0.6); }
 
 /* ── ANIMATIONS ── */
 @keyframes blink-cursor {
@@ -632,6 +801,36 @@
   user-select: none;
 }
 
+/* ── HERO BINARY RAIN (all themes) ──
+   Matrix-style falling 0/1 column, fading as it falls — flat color, no
+   glow. Uses the theme-aware foreground color at low opacity in light/
+   dark mode; Dev Mode overrides to a green tint via .binary-rain-dev to
+   match its neon-terminal look. Each column is a tall stack of digits
+   translated top-to-bottom. */
+@keyframes binary-rain-fall {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+.binary-rain {
+  position: absolute;
+  top: 0;
+  font-family: var(--app-font-mono);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: pre;
+  color: hsl(var(--foreground) / 0.32);
+  pointer-events: none;
+  user-select: none;
+  animation: binary-rain-fall linear infinite;
+}
+
+.binary-rain-dev {
+  color: hsl(var(--dev-cyan) / 0.45);
+}
+
 /* ── TOOLBAR ANIMATED BORDER ── */
 @property --toolbar-angle {
   syntax: "<angle>";
@@ -665,28 +864,17 @@
 }
 
 /* ── FIND & REPLACE MODAL ── */
+/* Simple slide-down + fade — no scale, no overshoot, no filter/blur.
+   Reads like a calm dropdown rather than a "pop", and only animates
+   opacity + transform (cheap, compositor-only) so it stays fast. */
 @keyframes fr-modal-fly {
   0% {
     opacity: 0;
-    transform: translate(var(--fr-from-x, 0), var(--fr-from-y, 0)) scale(0.05) rotate(8deg);
-    filter: blur(4px);
-  }
-  16% {
-    opacity: 1;
-    filter: blur(0);
-  }
-  75% {
-    opacity: 1;
-    transform: translate(0, calc(var(--fr-from-y, 0) * -0.04)) scale(1.025) rotate(-1deg);
-    filter: blur(0);
-  }
-  88% {
-    transform: translate(0, calc(var(--fr-from-y, 0) * 0.015)) scale(0.99) rotate(0.3deg);
+    transform: translateY(-10px);
   }
   100% {
     opacity: 1;
-    transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(0);
+    transform: translateY(0);
   }
 }
 
@@ -698,8 +886,328 @@
 }
 
 .fr-modal-fly {
-  animation: fr-modal-fly 0.95s cubic-bezier(0.16, 0.8, 0.2, 1.06) both;
-  transform-origin: center;
+  animation: fr-modal-fly 0.2s ease-out both;
+  will-change: transform, opacity;
+}
+
+/* ── THEME SWITCH (sun/moon day-night toggle) ── */
+.theme-switch {
+  /* Scaled down from the original 30px toggle-size to fit a navbar icon
+     slot — everything else in this component is sized in em relative to
+     this, so changing it alone rescales the whole switch proportionally. */
+  --toggle-size: 10px;
+  --container-width: 5.625em;
+  --container-height: 2.5em;
+  --container-radius: 6.25em;
+  --container-light-bg: #3d7eae;
+  --container-night-bg: #1d1f2c;
+  --circle-container-diameter: 3.375em;
+  --sun-moon-diameter: 2.125em;
+  --sun-bg: #ecca2f;
+  --moon-bg: #c4c9d1;
+  --spot-color: #959db1;
+  --circle-container-offset: calc(
+    (var(--circle-container-diameter) - var(--container-height)) / 2 * -1
+  );
+  --stars-color: #fff;
+  --clouds-color: #f3fdff;
+  --back-clouds-color: #aacadf;
+  --transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+  --circle-transition: 0.3s cubic-bezier(0, -0.02, 0.35, 1.17);
+  display: inline-flex;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.theme-switch,
+.theme-switch *,
+.theme-switch *::before,
+.theme-switch *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-size: var(--toggle-size);
+}
+
+.theme-switch__container {
+  width: var(--container-width);
+  height: var(--container-height);
+  background-color: var(--container-light-bg);
+  border-radius: var(--container-radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow:
+    0em -0.062em 0.062em rgba(0, 0, 0, 0.25),
+    0em 0.062em 0.125em rgba(255, 255, 255, 0.94);
+  transition: var(--transition);
+  position: relative;
+}
+
+.theme-switch__container::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  box-shadow:
+    0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset,
+    0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset;
+  border-radius: var(--container-radius);
+}
+
+.theme-switch__checkbox {
+  display: none;
+}
+
+.theme-switch__circle-container {
+  width: var(--circle-container-diameter);
+  height: var(--circle-container-diameter);
+  background-color: rgba(255, 255, 255, 0.1);
+  position: absolute;
+  left: var(--circle-container-offset);
+  top: var(--circle-container-offset);
+  border-radius: var(--container-radius);
+  box-shadow:
+    inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+    inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+    0 0 0 0.625em rgba(255, 255, 255, 0.1),
+    0 0 0 1.25em rgba(255, 255, 255, 0.1);
+  display: flex;
+  transition: var(--circle-transition);
+  pointer-events: none;
+}
+
+.theme-switch__sun-moon-container {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  width: var(--sun-moon-diameter);
+  height: var(--sun-moon-diameter);
+  margin: auto;
+  border-radius: var(--container-radius);
+  background-color: var(--sun-bg);
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+    0em -0.062em 0.062em 0em #a1872a inset;
+  filter: drop-shadow(0.062em 0.125em 0.125em rgba(0, 0, 0, 0.25))
+    drop-shadow(0em 0.062em 0.125em rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.theme-switch__moon {
+  transform: translateX(100%);
+  width: 100%;
+  height: 100%;
+  background-color: var(--moon-bg);
+  border-radius: inherit;
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+    0em -0.062em 0.062em 0em #969696 inset;
+  transition: var(--transition);
+  position: relative;
+}
+
+.theme-switch__spot {
+  position: absolute;
+  top: 0.75em;
+  left: 0.312em;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: var(--container-radius);
+  background-color: var(--spot-color);
+  box-shadow: 0em 0.0312em 0.062em rgba(0, 0, 0, 0.25) inset;
+}
+
+.theme-switch__spot:nth-of-type(2) {
+  width: 0.375em;
+  height: 0.375em;
+  top: 0.937em;
+  left: 1.375em;
+}
+
+.theme-switch__spot:nth-last-of-type(3) {
+  width: 0.25em;
+  height: 0.25em;
+  top: 0.312em;
+  left: 0.812em;
+}
+
+.theme-switch__clouds {
+  width: 1.25em;
+  height: 1.25em;
+  background-color: var(--clouds-color);
+  border-radius: var(--container-radius);
+  position: absolute;
+  bottom: -0.625em;
+  left: 0.312em;
+  box-shadow:
+    0.937em 0.312em var(--clouds-color),
+    -0.312em -0.312em var(--back-clouds-color),
+    1.437em 0.375em var(--clouds-color),
+    0.5em -0.125em var(--back-clouds-color),
+    2.187em 0 var(--clouds-color),
+    1.25em -0.062em var(--back-clouds-color),
+    2.937em 0.312em var(--clouds-color),
+    2em -0.312em var(--back-clouds-color),
+    3.625em -0.062em var(--clouds-color),
+    2.625em 0em var(--back-clouds-color),
+    4.5em -0.312em var(--clouds-color),
+    3.375em -0.437em var(--back-clouds-color),
+    4.625em -1.75em 0 0.437em var(--clouds-color),
+    4em -0.625em var(--back-clouds-color),
+    4.125em -2.125em 0 0.437em var(--back-clouds-color);
+  transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+}
+
+.theme-switch__stars-container {
+  position: absolute;
+  color: var(--stars-color);
+  top: -100%;
+  left: 0.312em;
+  width: 2.75em;
+  height: auto;
+  transition: var(--transition);
+}
+
+.theme-switch__checkbox:checked + .theme-switch__container {
+  background-color: var(--container-night-bg);
+}
+
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__circle-container {
+  left: calc(
+    100% - var(--circle-container-offset) - var(--circle-container-diameter)
+  );
+}
+
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__circle-container:hover {
+  left: calc(
+    100% - var(--circle-container-offset) - var(--circle-container-diameter) -
+      0.187em
+  );
+}
+
+.theme-switch__circle-container:hover {
+  left: calc(var(--circle-container-offset) + 0.187em);
+}
+
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__moon {
+  transform: translate(0);
+}
+
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__clouds {
+  bottom: -4.062em;
+}
+
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__stars-container {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ── PENCIL LOADER (Base64 encode/decode) ── */
+.pencil-loader {
+  display: block;
+  color: hsl(var(--foreground));
+}
+
+.pencil-loader__body1,
+.pencil-loader__body2,
+.pencil-loader__body3,
+.pencil-loader__eraser,
+.pencil-loader__eraser-skew,
+.pencil-loader__point,
+.pencil-loader__rotate,
+.pencil-loader__stroke {
+  animation-duration: 3s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.pencil-loader__body1,
+.pencil-loader__body2,
+.pencil-loader__body3 {
+  transform: rotate(-90deg);
+}
+
+.pencil-loader__body1 { animation-name: pencilLoaderBody1; }
+.pencil-loader__body2 { animation-name: pencilLoaderBody2; }
+.pencil-loader__body3 { animation-name: pencilLoaderBody3; }
+
+.pencil-loader__eraser {
+  animation-name: pencilLoaderEraser;
+  transform: rotate(-90deg) translate(49px, 0);
+}
+
+.pencil-loader__eraser-skew {
+  animation-name: pencilLoaderEraserSkew;
+  animation-timing-function: ease-in-out;
+}
+
+.pencil-loader__point {
+  animation-name: pencilLoaderPoint;
+  transform: rotate(-90deg) translate(49px, -30px);
+}
+
+.pencil-loader__rotate {
+  animation-name: pencilLoaderRotate;
+}
+
+.pencil-loader__stroke {
+  animation-name: pencilLoaderStroke;
+  transform: translate(100px, 100px) rotate(-113deg);
+}
+
+@keyframes pencilLoaderBody1 {
+  from, to { stroke-dashoffset: 351.86; transform: rotate(-90deg); }
+  50% { stroke-dashoffset: 150.8; transform: rotate(-225deg); }
+}
+
+@keyframes pencilLoaderBody2 {
+  from, to { stroke-dashoffset: 406.84; transform: rotate(-90deg); }
+  50% { stroke-dashoffset: 174.36; transform: rotate(-225deg); }
+}
+
+@keyframes pencilLoaderBody3 {
+  from, to { stroke-dashoffset: 296.88; transform: rotate(-90deg); }
+  50% { stroke-dashoffset: 127.23; transform: rotate(-225deg); }
+}
+
+@keyframes pencilLoaderEraser {
+  from, to { transform: rotate(-45deg) translate(49px, 0); }
+  50% { transform: rotate(0deg) translate(49px, 0); }
+}
+
+@keyframes pencilLoaderEraserSkew {
+  from, 32.5%, 67.5%, to { transform: skewX(0); }
+  35%, 65% { transform: skewX(-4deg); }
+  37.5%, 62.5% { transform: skewX(8deg); }
+  40%, 45%, 50%, 55%, 60% { transform: skewX(-15deg); }
+  42.5%, 47.5%, 52.5%, 57.5% { transform: skewX(15deg); }
+}
+
+@keyframes pencilLoaderPoint {
+  from, to { transform: rotate(-90deg) translate(49px, -30px); }
+  50% { transform: rotate(-225deg) translate(49px, -30px); }
+}
+
+@keyframes pencilLoaderRotate {
+  from { transform: translate(100px, 100px) rotate(0); }
+  to { transform: translate(100px, 100px) rotate(720deg); }
+}
+
+@keyframes pencilLoaderStroke {
+  from { stroke-dashoffset: 439.82; transform: translate(100px, 100px) rotate(-113deg); }
+  50% { stroke-dashoffset: 164.93; transform: translate(100px, 100px) rotate(-113deg); }
+  75%, to { stroke-dashoffset: 439.82; transform: translate(100px, 100px) rotate(112deg); }
 }
 
 /* ── PIN UNLOCK MODAL ── */
@@ -756,7 +1264,7 @@
     0 0 0 1px rgb(255 255 255 / 0.04);
 }
 
-.dev-mode .chat-panel-surface {
+html.dev-mode .chat-panel-surface {
   background: hsl(220 16% 13%);
   border: 1px solid hsl(220 14% 28%);
   box-shadow:
@@ -765,16 +1273,6 @@
     0 0 0 1px rgb(255 255 255 / 0.05);
 }
 
-/* Keyboard-triggered open (Ctrl+H) has no button to fly from, so keep it snappy. */
-@keyframes fr-modal-quick {
-  0%   { opacity: 0; transform: scale(0.95); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-.fr-modal-quick {
-  animation: fr-modal-quick 0.15s ease-out both;
-  transform-origin: top right;
-}
 
 /* ── UTILITIES ── */
 @layer utilities {
