@@ -496,18 +496,31 @@ html.dev-mode .tool-page-title {
 
 html.dev-mode .tool-toolbar {
   background: hsl(var(--card)) !important;
-  border: 1px solid hsl(var(--dev-cyan) / 0.3);
+  border: none;
   box-shadow: none;
 }
 
 /* The base .tool-toolbar rule draws an animated conic-gradient "spinning
    border" via ::before/::after (see @layer components above) — Dev Mode
-   disables that entirely and relies only on the plain flat border set
-   above, no gradient/animation anywhere. */
-html.dev-mode .tool-toolbar::before,
+   keeps that same spinning animation but recolors the gradient sweep to
+   the dev-cyan accent instead of the light/dark-mode blue. */
+html.dev-mode .tool-toolbar::before {
+  background: conic-gradient(
+    from var(--toolbar-angle, 0deg),
+    hsl(var(--dev-cyan) / 0.3) 0%,
+    hsl(var(--dev-cyan) / 0.3) 80%,
+    hsl(var(--dev-cyan) / 0.5) 83%,
+    hsl(var(--dev-cyan) / 0.75) 86%,
+    hsl(var(--dev-cyan)) 89%,
+    hsl(var(--dev-cyan) / 0.85) 92%,
+    hsl(var(--dev-cyan) / 0.6) 95%,
+    hsl(var(--dev-cyan)) 97%,
+    hsl(var(--dev-cyan) / 0.3) 100%
+  );
+}
+
 html.dev-mode .tool-toolbar::after {
-  content: none;
-  display: none;
+  background: hsl(var(--card));
 }
 
 html.dev-mode .tool-editor,
