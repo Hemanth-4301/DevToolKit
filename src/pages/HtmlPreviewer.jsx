@@ -12,6 +12,7 @@ import {
 import ScrollToTop from "../components/ScrollToTop";
 import ResizableSplit from "../components/ResizableSplit";
 import FindReplaceModal from "../components/FindReplaceModal";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 const STATE_KEY = "devtoolkit_html_preview_state";
 
@@ -74,7 +75,18 @@ function setState(state) {
 
 export default function HtmlPreviewer() {
   const initialState = getState();
-  const [html, setHtml] = useState(initialState.html);
+  const [html, setHtmlRaw] = useState(initialState.html);
+  const { record: recordHtmlUndo, handleKeyDown: handleHtmlUndoKeyDown } =
+    useUndoHistory(html, setHtmlRaw);
+  const setHtml = useCallback(
+    (val) => {
+      setHtmlRaw((prev) => {
+        recordHtmlUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordHtmlUndo],
+  );
   const [liveUpdate, setLiveUpdate] = useState(true);
   const [previewSrc, setPreviewSrc] = useState(initialState.html);
   const [showFullscreen, setShowFullscreen] = useState(false);
@@ -209,6 +221,7 @@ export default function HtmlPreviewer() {
           });
         }}
         onKeyDown={(e) => {
+          if (handleHtmlUndoKeyDown(e)) return;
           if (e.ctrlKey && e.key === "Enter") handleRun();
         }}
         placeholder="Paste or type HTML here..."

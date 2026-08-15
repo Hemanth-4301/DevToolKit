@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Copy,
   Check,
@@ -14,6 +14,7 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 function base64UrlDecode(str) {
   let s = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -99,7 +100,7 @@ const SAMPLE_JWT =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjk5OTk5OTk5OTl9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 
 export default function JwtDecoder() {
-  const [input, setInput] = useState("");
+  const [input, setInputRaw] = useState("");
   const [decoded, setDecoded] = useState(null);
   const [error, setError] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
@@ -118,6 +119,18 @@ export default function JwtDecoder() {
       setError(e.message);
     }
   };
+
+  const { record: recordInputUndo, handleKeyDown: handleInputUndoKeyDown } =
+    useUndoHistory(input, setInputRaw, decode);
+  const setInput = useCallback(
+    (val) => {
+      setInputRaw((prev) => {
+        recordInputUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordInputUndo],
+  );
 
   const handleInput = (val) => {
     setInput(val);
@@ -312,6 +325,7 @@ export default function JwtDecoder() {
           <textarea
             value={input}
             onChange={(e) => handleInput(e.target.value)}
+            onKeyDown={handleInputUndoKeyDown}
             placeholder={"Paste your JWT token here...\neyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ..."}
             className={cn(
               "w-full min-h-[120px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 transition-colors break-all",

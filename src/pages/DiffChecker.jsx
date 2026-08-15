@@ -16,6 +16,7 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 const STATE_KEY = "devtoolkit_diff_state";
 
@@ -842,19 +843,8 @@ export default function DiffChecker({ isActive = true }) {
               label={leftLabel}
               onLabelChange={setLeftLabel}
               text={leftText}
-              onChange={(t) => {
-                setLeftText(t);
-              }}
-              onPaste={async () => {
-                const t = await navigator.clipboard.readText();
-                setLeftText(t);
-              }}
-              onUpload={(t) => {
-                setLeftText(t);
-              }}
-              onClear={() => {
-                setLeftText("");
-              }}
+              onChange={setLeftText}
+              onPaste={() => navigator.clipboard.readText()}
               onFindReplace={() => setFindReplaceTarget("left")}
               fileRef={leftFile}
             />
@@ -864,19 +854,8 @@ export default function DiffChecker({ isActive = true }) {
               label={rightLabel}
               onLabelChange={setRightLabel}
               text={rightText}
-              onChange={(t) => {
-                setRightText(t);
-              }}
-              onPaste={async () => {
-                const t = await navigator.clipboard.readText();
-                setRightText(t);
-              }}
-              onUpload={(t) => {
-                setRightText(t);
-              }}
-              onClear={() => {
-                setRightText("");
-              }}
+              onChange={setRightText}
+              onPaste={() => navigator.clipboard.readText()}
               onFindReplace={() => setFindReplaceTarget("right")}
               fileRef={rightFile}
             />
@@ -1016,13 +995,20 @@ function PanelInput({
   text,
   onChange,
   onPaste,
-  onUpload,
-  onClear,
   onFindReplace,
   fileRef,
 }) {
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState(label);
+  const { record: recordUndo, handleKeyDown: handleUndoKeyDown } =
+    useUndoHistory(text, onChange);
+  const trackedOnChange = useCallback(
+    (next) => {
+      recordUndo(text);
+      onChange(next);
+    },
+    [recordUndo, onChange, text],
+  );
 
   return (
     <div className="tool-panel">
@@ -1068,7 +1054,7 @@ function PanelInput({
             <Replace className="h-3 w-3" /> Find &amp; Replace
           </button>
           <button
-            onClick={onPaste}
+            onClick={async () => trackedOnChange(await onPaste())}
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
           >
             <ClipboardPaste className="h-3 w-3" /> Paste
@@ -1080,7 +1066,7 @@ function PanelInput({
             <Upload className="h-3 w-3" /> Upload
           </button>
           <button
-            onClick={onClear}
+            onClick={() => trackedOnChange("")}
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
           >
             <Trash2 className="h-3 w-3" />
@@ -1094,7 +1080,7 @@ function PanelInput({
               const f = e.target.files[0];
               if (!f) return;
               const r = new FileReader();
-              r.onload = (ev) => onUpload(ev.target.result);
+              r.onload = (ev) => trackedOnChange(ev.target.result);
               r.readAsText(f);
               e.target.value = "";
             }}
@@ -1103,7 +1089,8 @@ function PanelInput({
       </div>
       <textarea
         value={text}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => trackedOnChange(e.target.value)}
+        onKeyDown={handleUndoKeyDown}
         placeholder="Type or paste content here..."
         className="w-full min-h-[240px] sm:min-h-[280px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 transition-colors"
       />

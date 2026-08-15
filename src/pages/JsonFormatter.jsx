@@ -21,6 +21,7 @@ import ScrollToTop from "../components/ScrollToTop";
 import JsonTree from "../components/JsonTree";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 const HISTORY_KEY = "devtoolkit_json_history";
 const STATE_KEY = "devtoolkit_json_state";
@@ -328,7 +329,19 @@ function PlainTextPane({ output, setOutput, wrap }) {
 
 export default function JsonFormatter() {
   const initialState = getState();
-  const [input, setInput] = useState(initialState.input);
+  const [input, setInputRaw] = useState(initialState.input);
+  const validateInputRef = useRef(() => {});
+  const { record: recordInputUndo, handleKeyDown: handleInputUndoKeyDown } =
+    useUndoHistory(input, setInputRaw, (restored) => validateInputRef.current(restored));
+  const setInput = useCallback(
+    (val) => {
+      setInputRaw((prev) => {
+        recordInputUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordInputUndo],
+  );
   const [output, setOutput] = useState(initialState.output);
   const [error, setError] = useState(null);
   const [indent, setIndent] = useState(2);
@@ -402,6 +415,10 @@ export default function JsonFormatter() {
     },
     [repairMode],
   );
+  validateInputRef.current = (val) => {
+    validateInput(val);
+    setOutput("");
+  };
 
   const handleInput = (val) => {
     setInput(val);
@@ -734,6 +751,7 @@ export default function JsonFormatter() {
               });
             }}
             onKeyDown={(e) => {
+              if (handleInputUndoKeyDown(e)) return;
               if (e.ctrlKey && e.key === "Enter") handleFormat();
             }}
             placeholder='Paste JSON here or click "Sample" to load an example...'

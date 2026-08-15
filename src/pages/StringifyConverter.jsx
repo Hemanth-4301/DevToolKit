@@ -17,6 +17,7 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 const HISTORY_KEY = "devtoolkit_stringify_history";
 const STATE_KEY = "devtoolkit_stringify_state";
@@ -278,21 +279,21 @@ function DownloadBtn({ text, filename, label }) {
 export default function StringifyConverter() {
   const initialState = getState();
   const [liveMode, setLiveMode] = useState(false);
-  const [liveJson, setLiveJson] = useState(initialState.liveJson);
-  const [liveStringified, setLiveStringified] = useState(
+  const [liveJson, setLiveJsonRaw] = useState(initialState.liveJson);
+  const [liveStringified, setLiveStringifiedRaw] = useState(
     initialState.liveStringified,
   );
   const [liveJsonError, setLiveJsonError] = useState(null);
   const [liveStringError, setLiveStringError] = useState(null);
 
-  const [jsonInput, setJsonInput] = useState(initialState.jsonInput);
+  const [jsonInput, setJsonInputRaw] = useState(initialState.jsonInput);
   const [stringifiedOutput, setStringifiedOutput] = useState(
     initialState.stringifiedOutput,
   );
   const [jsonifyError, setJsonifyError] = useState(null);
   const [prettyStringify, setPrettyStringify] = useState(false);
 
-  const [stringInput, setStringInput] = useState(initialState.stringInput);
+  const [stringInput, setStringInputRaw] = useState(initialState.stringInput);
   const [jsonOutput, setJsonOutput] = useState(initialState.jsonOutput);
   const [parseError, setParseError] = useState(null);
   const [expandedOutput, setExpandedOutput] = useState(null);
@@ -301,6 +302,71 @@ export default function StringifyConverter() {
   const debounceRef = useRef(null);
   const fileRefA = useRef(null);
   const fileRefB = useRef(null);
+
+  const runLiveStringifyRef = useRef(() => {});
+  const runLiveParseRef = useRef(() => {});
+  const runStringifyFromInputRef = useRef(() => {});
+  const runParseFromInputRef = useRef(() => {});
+
+  const { record: recordLiveJsonUndo, handleKeyDown: handleLiveJsonUndoKeyDown } =
+    useUndoHistory(liveJson, setLiveJsonRaw, (v) => runLiveStringifyRef.current(v));
+  const setLiveJson = useCallback(
+    (val) => {
+      setLiveJsonRaw((prev) => {
+        recordLiveJsonUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordLiveJsonUndo],
+  );
+
+  const {
+    record: recordLiveStringifiedUndo,
+    handleKeyDown: handleLiveStringifiedUndoKeyDown,
+  } = useUndoHistory(liveStringified, setLiveStringifiedRaw, (v) =>
+    runLiveParseRef.current(v),
+  );
+  const setLiveStringified = useCallback(
+    (val) => {
+      setLiveStringifiedRaw((prev) => {
+        recordLiveStringifiedUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordLiveStringifiedUndo],
+  );
+
+  const { record: recordJsonInputUndo, handleKeyDown: handleJsonInputUndoKeyDown } =
+    useUndoHistory(jsonInput, setJsonInputRaw, (v) => {
+      setStringifiedOutput("");
+      setJsonifyError(null);
+      runStringifyFromInputRef.current(v);
+    });
+  const setJsonInput = useCallback(
+    (val) => {
+      setJsonInputRaw((prev) => {
+        recordJsonInputUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordJsonInputUndo],
+  );
+
+  const { record: recordStringInputUndo, handleKeyDown: handleStringInputUndoKeyDown } =
+    useUndoHistory(stringInput, setStringInputRaw, (v) => {
+      setJsonOutput("");
+      setParseError(null);
+      runParseFromInputRef.current(v);
+    });
+  const setStringInput = useCallback(
+    (val) => {
+      setStringInputRaw((prev) => {
+        recordStringInputUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordStringInputUndo],
+  );
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -361,23 +427,27 @@ export default function StringifyConverter() {
   const runLiveStringify = useCallback((val) => {
     try {
       const result = doStringify(val, false);
-      setLiveStringified(result);
+      // Derived from liveJson, not a direct edit — write via the raw
+      // setter so it doesn't create its own undo step.
+      setLiveStringifiedRaw(result);
       setLiveJsonError(null);
     } catch (e) {
       setLiveJsonError(e.message);
-      setLiveStringified("");
+      setLiveStringifiedRaw("");
     }
   }, []);
+  runLiveStringifyRef.current = runLiveStringify;
 
   const runLiveParse = useCallback((val) => {
     try {
       const result = doParse(val);
-      setLiveJson(result);
+      setLiveJsonRaw(result);
       setLiveStringError(null);
     } catch (e) {
       setLiveStringError(e.message);
     }
   }, []);
+  runLiveParseRef.current = runLiveParse;
 
   useEffect(() => {
     if (!liveMode) return;
@@ -403,6 +473,7 @@ export default function StringifyConverter() {
     },
     [prettyStringify],
   );
+  runStringifyFromInputRef.current = runStringifyFromInput;
 
   const runParseFromInput = useCallback((value) => {
     if (!value.trim()) {
@@ -420,6 +491,7 @@ export default function StringifyConverter() {
       setJsonOutput("");
     }
   }, []);
+  runParseFromInputRef.current = runParseFromInput;
 
   const handleStringify = () => {
     if (!jsonInput.trim()) {
@@ -499,6 +571,7 @@ export default function StringifyConverter() {
                   300,
                 );
               }}
+              onKeyDown={handleLiveJsonUndoKeyDown}
               className={cn(
                 "w-full min-h-[240px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveJsonError
@@ -539,6 +612,7 @@ export default function StringifyConverter() {
                   300,
                 );
               }}
+              onKeyDown={handleLiveStringifiedUndoKeyDown}
               className={cn(
                 "w-full min-h-[240px] sm:min-h-[440px] p-3 sm:p-4 rounded-lg border bg-card font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
                 liveStringError
@@ -721,6 +795,7 @@ export default function StringifyConverter() {
                     el.setSelectionRange(pos, pos);
                   });
                 }}
+                onKeyDown={handleJsonInputUndoKeyDown}
                 placeholder={'{\n  "name": "Alice",\n  "age": 30\n}'}
                 className={cn(
                   "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",
@@ -911,6 +986,7 @@ export default function StringifyConverter() {
                     el.setSelectionRange(pos, pos);
                   });
                 }}
+                onKeyDown={handleStringInputUndoKeyDown}
                 placeholder={'"{\\"name\\":\\"Alice\\",\\"age\\":30}"'}
                 className={cn(
                   "w-full min-h-[180px] sm:min-h-[220px] p-3 sm:p-4 rounded-lg border bg-background font-mono text-sm leading-relaxed resize-y focus:outline-none focus:ring-1",

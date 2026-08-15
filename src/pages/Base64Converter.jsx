@@ -17,6 +17,7 @@ import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import PencilLoader from "../components/PencilLoader";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 // Minimum time the pencil loader stays visible, so fast conversions don't
 // just flash a spinner for a frame — this is purely a UX pace-setter, not
@@ -503,7 +504,20 @@ export default function Base64Converter() {
   const [mode, setMode] = useState("decode"); // "decode" | "encode"
 
   // ── Decode state
-  const [decodeInput, setDecodeInput] = useState("");
+  const [decodeInput, setDecodeInputRaw] = useState("");
+  const {
+    record: recordDecodeUndo,
+    handleKeyDown: handleDecodeUndoKeyDown,
+  } = useUndoHistory(decodeInput, setDecodeInputRaw);
+  const setDecodeInput = useCallback(
+    (val) => {
+      setDecodeInputRaw((prev) => {
+        recordDecodeUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordDecodeUndo],
+  );
   const [decodeError, setDecodeError] = useState(null);
   const [decodeResult, setDecodeResult] = useState(null); // { objectUrl, mimeType, blob, size }
   const [manualMime, setManualMime] = useState("");
@@ -516,7 +530,23 @@ export default function Base64Converter() {
 
   // ── Encode state
   const [encodeSourceMode, setEncodeSourceMode] = useState("file"); // "file" | "text"
-  const [encodeTextInput, setEncodeTextInput] = useState("");
+  const [encodeTextInput, setEncodeTextInputRaw] = useState("");
+  const handleEncodeTextChangeRef = useRef(() => {});
+  const {
+    record: recordEncodeTextUndo,
+    handleKeyDown: handleEncodeTextUndoKeyDown,
+  } = useUndoHistory(encodeTextInput, setEncodeTextInputRaw, (restored) =>
+    handleEncodeTextChangeRef.current(restored),
+  );
+  const setEncodeTextInput = useCallback(
+    (val) => {
+      setEncodeTextInputRaw((prev) => {
+        recordEncodeTextUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordEncodeTextUndo],
+  );
   const [encodeOutput, setEncodeOutput] = useState(""); // full data URL (file mode) or raw base64 (text mode)
   const [encodeFileName, setEncodeFileName] = useState("");
   const [encodeSize, setEncodeSize] = useState(null);
@@ -690,8 +720,7 @@ export default function Base64Converter() {
     handleFileUpload({ target: { files: [file] } });
   };
 
-  const handleEncodeTextChange = (text) => {
-    setEncodeTextInput(text);
+  const applyEncodeSideEffects = (text) => {
     setEncodeError(null);
     setShowFullEncodeOutput(false);
     if (!text) {
@@ -715,6 +744,12 @@ export default function Base64Converter() {
       setEncodeError("Failed to encode text: " + err.message);
       setEncodeOutput("");
     }
+  };
+  handleEncodeTextChangeRef.current = applyEncodeSideEffects;
+
+  const handleEncodeTextChange = (text) => {
+    setEncodeTextInput(text);
+    applyEncodeSideEffects(text);
   };
 
   const displayOutput =
@@ -968,6 +1003,7 @@ export default function Base64Converter() {
                   await handlePreviewHotkeys(e, decodeInput);
                   return;
                 }
+                if (handleDecodeUndoKeyDown(e)) return;
                 if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runDecode();
               }}
               placeholder={
@@ -1171,6 +1207,7 @@ export default function Base64Converter() {
                     el.setSelectionRange(pos, pos);
                   });
                 }}
+                onKeyDown={handleEncodeTextUndoKeyDown}
                 placeholder="Type or paste text here to encode it to Base64…"
                 className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y transition-colors focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50"
               />

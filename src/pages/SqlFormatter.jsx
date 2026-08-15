@@ -20,6 +20,7 @@ import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
+import { useUndoHistory } from "../hooks/use-undo-history";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
 const STATE_KEY = "devtoolkit_sql_state";
@@ -891,7 +892,18 @@ function tokenizeLine(line) {
 
 export default function SqlFormatter() {
   const initialState = getState();
-  const [input, setInput] = useState(initialState.input);
+  const [input, setInputRaw] = useState(initialState.input);
+  const { record: recordInputUndo, handleKeyDown: handleInputUndoKeyDown } =
+    useUndoHistory(input, setInputRaw, () => setOutput(""));
+  const setInput = useCallback(
+    (val) => {
+      setInputRaw((prev) => {
+        recordInputUndo(prev);
+        return typeof val === "function" ? val(prev) : val;
+      });
+    },
+    [recordInputUndo],
+  );
   const [output, setOutput] = useState(initialState.output);
   const [dialect, setDialect] = useState("MSSQL");
   const [indentSize, setIndentSize] = useState(2);
@@ -1236,6 +1248,7 @@ export default function SqlFormatter() {
               });
             }}
             onKeyDown={(e) => {
+              if (handleInputUndoKeyDown(e)) return;
               if (e.ctrlKey && e.key === "Enter") handleFormat();
             }}
             placeholder='Paste SQL here or click "Sample" to load an example...'
