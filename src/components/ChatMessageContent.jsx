@@ -69,9 +69,26 @@ const HEADING_SIZES = {
   6: "text-sm font-semibold",
 };
 
+// A markdown table row looks like "| a | b |" or "a | b" — at least one
+// pipe outside the trivial single-cell case. The separator row ("|---|---|")
+// is what confirms it's really a table rather than text that happens to
+// contain a pipe.
+function isTableRow(line) {
+  return /\|/.test(line);
+}
+function isTableSeparatorRow(line) {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(line);
+}
+function splitTableCells(line) {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => c.trim());
+}
+
 // Groups lines of plain (non-code-fence) text into block-level elements —
-// headings, bullet/numbered list items, and paragraphs — so markdown
-// markers like "#" or "-" render as real structure instead of literal
+// headings, bullet/numbered list items, tables, and paragraphs — so markdown
+// markers like "#", "-", or "|" render as real structure instead of literal
 // characters in the chat bubble.
 function renderTextBlock(text, keyPrefix) {
   const lines = text.split("\n");
@@ -92,16 +109,32 @@ function renderTextBlock(text, keyPrefix) {
     }
   };
 
-  for (const raw of lines) {
-    const line = raw.trimEnd();
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx].trimEnd();
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     const bullet = /^\s*[-*+]\s+(.*)$/.exec(line);
     const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
     const isRule = /^\s*([-*_])\s*(?:\1\s*){2,}$/.test(line);
+    const nextLine = lines[idx + 1]?.trimEnd() ?? "";
+    const isTableStart =
+      isTableRow(line) && !isRule && isTableSeparatorRow(nextLine);
 
     if (!line.trim()) {
       flushPara();
       flushList();
+      continue;
+    }
+    if (isTableStart) {
+      flushPara();
+      flushList();
+      const header = splitTableCells(line);
+      idx++; // consume separator row
+      const rows = [];
+      while (idx + 1 < lines.length && isTableRow(lines[idx + 1].trimEnd())) {
+        idx++;
+        rows.push(splitTableCells(lines[idx].trimEnd()));
+      }
+      blocks.push({ type: "table", header, rows });
       continue;
     }
     if (isRule) {
@@ -166,6 +199,37 @@ function renderTextBlock(text, keyPrefix) {
             <li key={`${key}-li${ii}`}>{renderInline(item, `${key}-li${ii}`)}</li>
           ))}
         </Tag>
+      );
+    }
+    if (block.type === "table") {
+      return (
+        <div key={key} className="my-2 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted/50">
+                {block.header.map((cell, ci) => (
+                  <th
+                    key={`${key}-h${ci}`}
+                    className="px-2.5 py-1.5 text-left font-semibold border-b border-border whitespace-nowrap"
+                  >
+                    {renderInline(cell, `${key}-h${ci}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, ri) => (
+                <tr key={`${key}-r${ri}`} className="border-b border-border last:border-b-0 odd:bg-transparent even:bg-muted/20">
+                  {row.map((cell, ci) => (
+                    <td key={`${key}-r${ri}c${ci}`} className="px-2.5 py-1.5 align-top">
+                      {renderInline(cell, `${key}-r${ri}c${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       );
     }
     return (
