@@ -20,6 +20,7 @@ import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import JsonTree from "../components/JsonTree";
 import FindReplaceModal from "../components/FindReplaceModal";
+import ResizableSplit from "../components/ResizableSplit";
 
 const HISTORY_KEY = "devtoolkit_json_history";
 const STATE_KEY = "devtoolkit_json_state";
@@ -661,7 +662,9 @@ export default function JsonFormatter() {
         </div>
       )}
 
-      <div className="tool-grid">
+      <ResizableSplit
+        storageKey="devtoolkit_json_split"
+        left={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -748,7 +751,8 @@ export default function JsonFormatter() {
             </div>
           )}
         </div>
-
+        }
+        right={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -889,7 +893,8 @@ export default function JsonFormatter() {
               )}
           </div>
         </div>
-      </div>
+        }
+      />
 
       <div className="mt-4">
         <button

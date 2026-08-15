@@ -19,6 +19,7 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import FindReplaceModal from "../components/FindReplaceModal";
+import ResizableSplit from "../components/ResizableSplit";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
 const STATE_KEY = "devtoolkit_sql_state";
@@ -1161,7 +1162,9 @@ export default function SqlFormatter() {
         </button>
       </div>
 
-      <div className="tool-grid">
+      <ResizableSplit
+        storageKey="devtoolkit_sql_split"
+        left={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -1239,7 +1242,8 @@ export default function SqlFormatter() {
             className="w-full min-h-[240px] sm:min-h-[420px] p-3 sm:p-4 rounded-lg border border-border bg-card font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50 transition-colors"
           />
         </div>
-
+        }
+        right={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -1328,7 +1332,8 @@ export default function SqlFormatter() {
             )}
           </pre>
         </div>
-      </div>
+        }
+      />
 
       <div className="mt-4">
         <button

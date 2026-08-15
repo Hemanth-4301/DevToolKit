@@ -11,6 +11,7 @@ import {
   UserX,
   HardDrive,
   Sparkles,
+  Globe,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -106,6 +107,18 @@ const TOOLS = [
     badge: "File to Base64",
   },
   {
+    id: "html",
+    icon: Globe,
+    name: "HTML Previewer",
+    desc: "Write or paste HTML and see a live, sandboxed preview update as you type.",
+    color: "text-amber-400",
+    glow: "shadow-amber-500/20",
+    gradient: "from-amber-500/15 to-amber-600/5",
+    border: "border-amber-500/25 hover:border-amber-400/50",
+    iconBg: "bg-amber-500/15",
+    badge: "Live Preview",
+  },
+  {
     id: "jwt",
     icon: KeyRound,
     name: "JWT Decoder",
@@ -132,7 +145,7 @@ const TOOLS = [
 ];
 
 const STATS = [
-  { icon: Zap, label: "6 Tools" },
+  { icon: Zap, label: "7 Tools" },
   { icon: WifiOff, label: "100% Offline" },
   { icon: UserX, label: "No Sign-up" },
   { icon: HardDrive, label: "localStorage" },

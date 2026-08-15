@@ -15,6 +15,7 @@ import {
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import FindReplaceModal from "../components/FindReplaceModal";
+import ResizableSplit from "../components/ResizableSplit";
 
 const STATE_KEY = "devtoolkit_diff_state";
 
@@ -833,46 +834,53 @@ export default function DiffChecker({ isActive = true }) {
         </div>
       )}
 
-      <div className="tool-grid mb-5">
-        <PanelInput
-          label={leftLabel}
-          onLabelChange={setLeftLabel}
-          text={leftText}
-          onChange={(t) => {
-            setLeftText(t);
-          }}
-          onPaste={async () => {
-            const t = await navigator.clipboard.readText();
-            setLeftText(t);
-          }}
-          onUpload={(t) => {
-            setLeftText(t);
-          }}
-          onClear={() => {
-            setLeftText("");
-          }}
-          onFindReplace={() => setFindReplaceTarget("left")}
-          fileRef={leftFile}
-        />
-        <PanelInput
-          label={rightLabel}
-          onLabelChange={setRightLabel}
-          text={rightText}
-          onChange={(t) => {
-            setRightText(t);
-          }}
-          onPaste={async () => {
-            const t = await navigator.clipboard.readText();
-            setRightText(t);
-          }}
-          onUpload={(t) => {
-            setRightText(t);
-          }}
-          onClear={() => {
-            setRightText("");
-          }}
-          onFindReplace={() => setFindReplaceTarget("right")}
-          fileRef={rightFile}
+      <div className="mb-5">
+        <ResizableSplit
+          storageKey="devtoolkit_diff_split"
+          left={
+            <PanelInput
+              label={leftLabel}
+              onLabelChange={setLeftLabel}
+              text={leftText}
+              onChange={(t) => {
+                setLeftText(t);
+              }}
+              onPaste={async () => {
+                const t = await navigator.clipboard.readText();
+                setLeftText(t);
+              }}
+              onUpload={(t) => {
+                setLeftText(t);
+              }}
+              onClear={() => {
+                setLeftText("");
+              }}
+              onFindReplace={() => setFindReplaceTarget("left")}
+              fileRef={leftFile}
+            />
+          }
+          right={
+            <PanelInput
+              label={rightLabel}
+              onLabelChange={setRightLabel}
+              text={rightText}
+              onChange={(t) => {
+                setRightText(t);
+              }}
+              onPaste={async () => {
+                const t = await navigator.clipboard.readText();
+                setRightText(t);
+              }}
+              onUpload={(t) => {
+                setRightText(t);
+              }}
+              onClear={() => {
+                setRightText("");
+              }}
+              onFindReplace={() => setFindReplaceTarget("right")}
+              fileRef={rightFile}
+            />
+          }
         />
       </div>
 

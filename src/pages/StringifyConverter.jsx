@@ -16,6 +16,7 @@ import {
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import FindReplaceModal from "../components/FindReplaceModal";
+import ResizableSplit from "../components/ResizableSplit";
 
 const HISTORY_KEY = "devtoolkit_stringify_history";
 const STATE_KEY = "devtoolkit_stringify_state";
@@ -465,7 +466,9 @@ export default function StringifyConverter() {
           </button>
         </div>
 
-        <div className="tool-grid">
+        <ResizableSplit
+          storageKey="devtoolkit_stringify_live_split"
+          left={
           <div className="flex flex-col gap-2">
             <div className="tool-panel-header">
               <span className="text-sm font-semibold">
@@ -504,6 +507,8 @@ export default function StringifyConverter() {
               )}
             />
           </div>
+          }
+          right={
           <div className="flex flex-col gap-2">
             <div className="tool-panel-header">
               <span className="text-sm font-semibold">
@@ -544,7 +549,8 @@ export default function StringifyConverter() {
               )}
             />
           </div>
-        </div>
+          }
+        />
 
         <p className="mt-4 text-sm text-muted-foreground">
           <strong>Tip:</strong> Left shows your JSON formatted. Right shows it
@@ -632,7 +638,9 @@ export default function StringifyConverter() {
             </label>
           </div>
 
-          <div className="tool-grid">
+          <ResizableSplit
+            storageKey="devtoolkit_stringify_a_split"
+            left={
             <div className="flex flex-col gap-2">
               <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
@@ -728,7 +736,8 @@ export default function StringifyConverter() {
                 </div>
               )}
             </div>
-
+            }
+            right={
             <div className="flex flex-col gap-2">
               <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
@@ -777,7 +786,8 @@ export default function StringifyConverter() {
                 )}
               </div>
             </div>
-          </div>
+            }
+          />
 
           <div className="flex flex-wrap justify-end gap-2">
             <button
@@ -816,7 +826,9 @@ export default function StringifyConverter() {
             object.
           </p>
 
-          <div className="tool-grid">
+          <ResizableSplit
+            storageKey="devtoolkit_stringify_b_split"
+            left={
             <div className="flex flex-col gap-2">
               <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
@@ -914,7 +926,8 @@ export default function StringifyConverter() {
                 </div>
               )}
             </div>
-
+            }
+            right={
             <div className="flex flex-col gap-2">
               <div className="tool-panel-header">
                 <span className="text-sm text-muted-foreground font-medium">
@@ -954,7 +967,8 @@ export default function StringifyConverter() {
                 )}
               </div>
             </div>
-          </div>
+            }
+          />
 
           <div className="flex flex-wrap justify-end gap-2">
             <button

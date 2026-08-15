@@ -7,6 +7,7 @@ import Base64Converter from "./pages/Base64Converter";
 import StringifyConverter from "./pages/StringifyConverter";
 import DiffChecker from "./pages/DiffChecker";
 import JwtDecoder from "./pages/JwtDecoder";
+import HtmlPreviewer from "./pages/HtmlPreviewer";
 import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
 import PinUnlockModal from "./components/PinUnlockModal";
@@ -91,6 +92,10 @@ export default function App() {
 
         <section className={activeTab === "jwt" ? "block" : "hidden"}>
           <JwtDecoder />
+        </section>
+
+        <section className={activeTab === "html" ? "block" : "hidden"}>
+          <HtmlPreviewer />
         </section>
       </main>
       <ToastContainer />

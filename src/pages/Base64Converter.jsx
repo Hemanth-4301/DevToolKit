@@ -16,6 +16,7 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import PencilLoader from "../components/PencilLoader";
+import ResizableSplit from "../components/ResizableSplit";
 
 // Minimum time the pencil loader stays visible, so fast conversions don't
 // just flash a spinner for a frame — this is purely a UX pace-setter, not
@@ -884,8 +885,9 @@ export default function Base64Converter() {
 
       {/* ── DECODE ─────────────────────────────────────────────────────────── */}
       {mode === "decode" && (
-        <div className="tool-grid">
-          {/* Input */}
+        <ResizableSplit
+          storageKey="devtoolkit_base64_decode_split"
+          left={
           <div className="tool-panel">
             <div className="tool-panel-header">
               <div className="tool-panel-title">
@@ -996,8 +998,8 @@ export default function Base64Converter() {
               </div>
             )}
           </div>
-
-          {/* Preview */}
+          }
+          right={
           <div className="tool-panel">
             <div className="tool-panel-header">
               <div className="tool-panel-title">
@@ -1093,13 +1095,15 @@ export default function Base64Converter() {
                 )}
             </div>
           </div>
-        </div>
+          }
+        />
       )}
 
       {/* ── ENCODE ─────────────────────────────────────────────────────────── */}
       {mode === "encode" && (
-        <div className="tool-grid items-start">
-          {/* Source panel */}
+        <ResizableSplit
+          storageKey="devtoolkit_base64_encode_split"
+          left={
           <div className="tool-panel">
             <div className="tool-panel-header">
               <div className="flex items-center gap-2">
@@ -1247,8 +1251,8 @@ export default function Base64Converter() {
               </div>
             )}
           </div>
-
-          {/* Output */}
+          }
+          right={
           <div className="tool-panel">
             <div className="tool-panel-header">
               <div className="tool-panel-title">
@@ -1337,7 +1341,8 @@ export default function Base64Converter() {
               )}
             </div>
           </div>
-        </div>
+          }
+        />
       )}
 
       {showPreviewFullscreen && decodeResult && (

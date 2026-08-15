@@ -8,10 +8,12 @@ import {
   ShieldCheck,
   ShieldX,
   FileText,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
+import ResizableSplit from "../components/ResizableSplit";
 
 function base64UrlDecode(str) {
   let s = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -102,6 +104,7 @@ export default function JwtDecoder() {
   const [error, setError] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
   const [animKey, setAnimKey] = useState(0);
+  const [showFullscreen, setShowFullscreen] = useState(false);
 
   const decode = (token) => {
     const t = token.trim();
@@ -139,6 +142,129 @@ export default function JwtDecoder() {
   const isRsa = alg.startsWith("RS") || alg.startsWith("PS");
   const isEc = alg.startsWith("ES");
 
+  const decodedBody = decoded && (
+    <div className="p-4 space-y-4">
+      {/* Status */}
+      <div className="output-line flex flex-wrap items-center gap-2 text-xs font-mono" style={{ "--line-delay": "0s" }}>
+        <span className="px-2 py-1 rounded bg-muted border border-border text-foreground">
+          {decoded.header.alg || "—"}
+        </span>
+        <span className="px-2 py-1 rounded bg-muted border border-border text-foreground">
+          {decoded.header.typ || "JWT"}
+        </span>
+        {decoded.payload.exp && (
+          expired ? (
+            <span className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-500">
+              <ShieldX className="h-3 w-3" /> Expired
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-500">
+              <ShieldCheck className="h-3 w-3" /> Not Expired
+            </span>
+          )
+        )}
+        <span className="text-muted-foreground text-[10px] hidden sm:inline">
+          {isHmac ? "Needs secret to verify" : isRsa ? "Verify with RSA public key" : isEc ? "Verify with EC public key" : ""}
+        </span>
+      </div>
+
+      {/* HEADER */}
+      <div className="output-line" style={{ "--line-delay": "0.06s" }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">Header</span>
+          <button
+            onClick={() => handleCopy(JSON.stringify(decoded.header, null, 2), "header")}
+            className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
+              copiedKey === "header" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
+          >
+            {copiedKey === "header" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            Copy
+          </button>
+        </div>
+        <pre className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 font-mono text-sm whitespace-pre-wrap break-all select-text">
+          {highlightJson(JSON.stringify(decoded.header, null, 2))}
+        </pre>
+      </div>
+
+      {/* PAYLOAD */}
+      <div className="output-line" style={{ "--line-delay": "0.12s" }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">Payload</span>
+          <button
+            onClick={() => handleCopy(JSON.stringify(decoded.payload, null, 2), "payload")}
+            className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
+              copiedKey === "payload" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
+          >
+            {copiedKey === "payload" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            Copy
+          </button>
+        </div>
+        <pre className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/20 font-mono text-sm whitespace-pre-wrap break-all select-text">
+          {highlightJson(JSON.stringify(decoded.payload, null, 2))}
+        </pre>
+        {/* Claim details */}
+        <div className="mt-2 space-y-1">
+          {Object.entries(decoded.payload).map(([k, v]) => {
+            const isTs = ["exp", "iat", "nbf"].includes(k);
+            const timeStr = isTs ? formatTime(v) : null;
+            const expiredClaim = k === "exp" ? isExpired(v) : null;
+            const desc = CLAIM_DESCRIPTIONS[k];
+            return (
+              <div key={k} className="flex flex-wrap items-start gap-2 text-xs font-mono px-2 py-1.5 rounded bg-muted/30 border border-border/50">
+                <span className="text-violet-500 dark:text-violet-400 shrink-0 w-16 sm:w-20">{k}</span>
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <span className={cn("break-all",
+                    typeof v === "boolean" ? "text-purple-500 dark:text-purple-400" :
+                    typeof v === "number" ? "text-orange-500 dark:text-orange-400" :
+                    v === null ? "text-red-400" : "text-green-600 dark:text-green-400"
+                  )}>
+                    {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                  </span>
+                  {timeStr && (
+                    <div className={cn(
+                      expiredClaim === true ? "text-red-400" :
+                      expiredClaim === false ? "text-green-500" : "text-muted-foreground"
+                    )}>
+                      {timeStr}{expiredClaim === true ? " — EXPIRED" : expiredClaim === false ? " — valid" : ""}
+                    </div>
+                  )}
+                  {desc && <div className="text-muted-foreground/70">{desc}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* SIGNATURE */}
+      <div className="output-line" style={{ "--line-delay": "0.18s" }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Signature</span>
+          <button
+            onClick={() => handleCopy(decoded.signature, "signature")}
+            className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
+              copiedKey === "signature" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
+          >
+            {copiedKey === "signature" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            Copy
+          </button>
+        </div>
+        <pre className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 font-mono text-sm text-blue-500 dark:text-blue-400 break-all whitespace-pre-wrap select-text">
+          {decoded.signature}
+        </pre>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {isHmac
+            ? `HMAC-${alg.slice(2)} — requires the secret key to verify.`
+            : isRsa
+            ? `${alg} (RSA) — verify using the issuer's public key or JWKS endpoint.`
+            : isEc
+            ? `${alg} (ECDSA) — verify using the issuer's public key or JWKS endpoint.`
+            : "Verification requires the secret or public key from the token issuer."}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="tool-page">
       <div className="tool-page-header">
@@ -148,8 +274,9 @@ export default function JwtDecoder() {
         </p>
       </div>
 
-      <div className="tool-grid">
-        {/* LEFT — Input */}
+      <ResizableSplit
+        storageKey="devtoolkit_jwt_split"
+        left={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -227,8 +354,8 @@ export default function JwtDecoder() {
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Signature</span>
           </div>
         </div>
-
-        {/* RIGHT — Output */}
+        }
+        right={
         <div className="tool-panel">
           <div className="tool-panel-header">
             <div className="tool-panel-title">
@@ -258,6 +385,12 @@ export default function JwtDecoder() {
                   {copiedKey === "payload-top" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   Copy Payload
                 </button>
+                <button
+                  onClick={() => setShowFullscreen(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </button>
               </div>
             )}
           </div>
@@ -268,132 +401,28 @@ export default function JwtDecoder() {
                 Decoded output will appear here...
               </div>
             )}
-
-            {decoded && (
-              <div className="p-4 space-y-4">
-                {/* Status */}
-                <div className="output-line flex flex-wrap items-center gap-2 text-xs font-mono" style={{ "--line-delay": "0s" }}>
-                  <span className="px-2 py-1 rounded bg-muted border border-border text-foreground">
-                    {decoded.header.alg || "—"}
-                  </span>
-                  <span className="px-2 py-1 rounded bg-muted border border-border text-foreground">
-                    {decoded.header.typ || "JWT"}
-                  </span>
-                  {decoded.payload.exp && (
-                    expired ? (
-                      <span className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-500">
-                        <ShieldX className="h-3 w-3" /> Expired
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-500">
-                        <ShieldCheck className="h-3 w-3" /> Not Expired
-                      </span>
-                    )
-                  )}
-                  <span className="text-muted-foreground text-[10px] hidden sm:inline">
-                    {isHmac ? "Needs secret to verify" : isRsa ? "Verify with RSA public key" : isEc ? "Verify with EC public key" : ""}
-                  </span>
-                </div>
-
-                {/* HEADER */}
-                <div className="output-line" style={{ "--line-delay": "0.06s" }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">Header</span>
-                    <button
-                      onClick={() => handleCopy(JSON.stringify(decoded.header, null, 2), "header")}
-                      className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
-                        copiedKey === "header" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
-                    >
-                      {copiedKey === "header" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      Copy
-                    </button>
-                  </div>
-                  <pre className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 font-mono text-sm whitespace-pre-wrap break-all select-text">
-                    {highlightJson(JSON.stringify(decoded.header, null, 2))}
-                  </pre>
-                </div>
-
-                {/* PAYLOAD */}
-                <div className="output-line" style={{ "--line-delay": "0.12s" }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">Payload</span>
-                    <button
-                      onClick={() => handleCopy(JSON.stringify(decoded.payload, null, 2), "payload")}
-                      className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
-                        copiedKey === "payload" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
-                    >
-                      {copiedKey === "payload" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      Copy
-                    </button>
-                  </div>
-                  <pre className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/20 font-mono text-sm whitespace-pre-wrap break-all select-text">
-                    {highlightJson(JSON.stringify(decoded.payload, null, 2))}
-                  </pre>
-                  {/* Claim details */}
-                  <div className="mt-2 space-y-1">
-                    {Object.entries(decoded.payload).map(([k, v]) => {
-                      const isTs = ["exp", "iat", "nbf"].includes(k);
-                      const timeStr = isTs ? formatTime(v) : null;
-                      const expiredClaim = k === "exp" ? isExpired(v) : null;
-                      const desc = CLAIM_DESCRIPTIONS[k];
-                      return (
-                        <div key={k} className="flex flex-wrap items-start gap-2 text-xs font-mono px-2 py-1.5 rounded bg-muted/30 border border-border/50">
-                          <span className="text-violet-500 dark:text-violet-400 shrink-0 w-16 sm:w-20">{k}</span>
-                          <div className="flex-1 min-w-0 space-y-0.5">
-                            <span className={cn("break-all",
-                              typeof v === "boolean" ? "text-purple-500 dark:text-purple-400" :
-                              typeof v === "number" ? "text-orange-500 dark:text-orange-400" :
-                              v === null ? "text-red-400" : "text-green-600 dark:text-green-400"
-                            )}>
-                              {typeof v === "object" ? JSON.stringify(v) : String(v)}
-                            </span>
-                            {timeStr && (
-                              <div className={cn(
-                                expiredClaim === true ? "text-red-400" :
-                                expiredClaim === false ? "text-green-500" : "text-muted-foreground"
-                              )}>
-                                {timeStr}{expiredClaim === true ? " — EXPIRED" : expiredClaim === false ? " — valid" : ""}
-                              </div>
-                            )}
-                            {desc && <div className="text-muted-foreground/70">{desc}</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* SIGNATURE */}
-                <div className="output-line" style={{ "--line-delay": "0.18s" }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Signature</span>
-                    <button
-                      onClick={() => handleCopy(decoded.signature, "signature")}
-                      className={cn("flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors",
-                        copiedKey === "signature" ? "text-green-400" : "text-muted-foreground hover:text-foreground hover:bg-accent")}
-                    >
-                      {copiedKey === "signature" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      Copy
-                    </button>
-                  </div>
-                  <pre className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 font-mono text-sm text-blue-500 dark:text-blue-400 break-all whitespace-pre-wrap select-text">
-                    {decoded.signature}
-                  </pre>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {isHmac
-                      ? `HMAC-${alg.slice(2)} — requires the secret key to verify.`
-                      : isRsa
-                      ? `${alg} (RSA) — verify using the issuer's public key or JWKS endpoint.`
-                      : isEc
-                      ? `${alg} (ECDSA) — verify using the issuer's public key or JWKS endpoint.`
-                      : "Verification requires the secret or public key from the token issuer."}
-                  </p>
-                </div>
-              </div>
-            )}
+            {decodedBody}
           </div>
         </div>
-      </div>
+        }
+      />
+
+      {showFullscreen && decoded && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col p-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-semibold">Decoded Output</span>
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="p-2 rounded-lg hover:bg-accent transition-colors"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto rounded-lg border border-border bg-card">
+            {decodedBody}
+          </div>
+        </div>
+      )}
 
       <ScrollToTop />
     </div>
