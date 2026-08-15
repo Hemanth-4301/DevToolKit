@@ -150,8 +150,19 @@ function highlightJson(jsonStr) {
 
 function repairJson(str) {
   let s = str.trim();
+  // Strip // line comments and /* block */ comments — a heuristic (not a
+  // real tokenizer), so it only treats "//" as a comment when it's not
+  // immediately preceded by a colon, which keeps "http://" inside string
+  // values intact for the common case.
+  s = s.replace(/\/\*[\s\S]*?\*\//g, "");
+  s = s.replace(/(^|[^:])\/\/.*$/gm, "$1");
+  // Trailing commas before a closing bracket/brace
   s = s.replace(/,(\s*[}\]])/g, "$1");
+  // Single-quoted keys -> double-quoted keys
+  s = s.replace(/([{,]\s*)'([^']*)'(\s*):/g, '$1"$2"$3:');
+  // Unquoted keys -> double-quoted keys
   s = s.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+  // Single-quoted string values -> double-quoted
   s = s.replace(/:\s*'([^']*)'/g, ': "$1"');
   return s;
 }
