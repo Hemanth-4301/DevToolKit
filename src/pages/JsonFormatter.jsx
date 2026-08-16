@@ -881,8 +881,10 @@ export default function JsonFormatter() {
                 sel.addRange(range);
               }
               if (e.ctrlKey && e.key === "c") {
-                const selected = window.getSelection()?.toString();
-                if (selected) return; // let the browser copy the selection as-is
+                const sel = window.getSelection();
+                const hasSelection =
+                  sel && sel.rangeCount > 0 && !sel.isCollapsed;
+                if (hasSelection) return; // let the browser copy the selection as-is
                 e.preventDefault();
                 // Nothing selected — copy the full JSON (tree may have collapsed nodes)
                 navigator.clipboard.writeText(output);
