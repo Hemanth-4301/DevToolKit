@@ -384,7 +384,7 @@ export default function HomePage({ onTabChange, devMode }) {
             Everything you need, nothing you don't.
           </h2>
           <p className="text-muted-foreground text-base">
-            Six powerful tools, zero dependencies, all in your browser.
+            Seven powerful tools, zero dependencies, all in your browser.
           </p>
         </div>
 
