@@ -25,6 +25,65 @@ import ChatMessageContent from "./ChatMessageContent";
 
 const STORAGE_KEY = "devtoolkit_chat_history";
 const MAX_STORED_MESSAGES = 40;
+const POSITION_KEY = "devtoolkit_chat_launcher_pos";
+const LAUNCHER_SIZE = 56; // px — matches h-14/w-14
+const EDGE_MARGIN = 12;
+// Distinguishes a drag from a click — a pointer that never moves more
+// than this is treated as a tap/click that opens the widget instead.
+const DRAG_THRESHOLD_PX = 6;
+
+function loadPosition() {
+  try {
+    const raw = localStorage.getItem(POSITION_KEY);
+    if (!raw) return null;
+    const pos = JSON.parse(raw);
+    if (typeof pos?.x === "number" && typeof pos?.y === "number") return pos;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function clampPosition(x, y) {
+  const maxX = window.innerWidth - LAUNCHER_SIZE - EDGE_MARGIN;
+  const maxY = window.innerHeight - LAUNCHER_SIZE - EDGE_MARGIN;
+  return {
+    x: Math.min(Math.max(x, EDGE_MARGIN), Math.max(maxX, EDGE_MARGIN)),
+    y: Math.min(Math.max(y, EDGE_MARGIN), Math.max(maxY, EDGE_MARGIN)),
+  };
+}
+
+function defaultPosition() {
+  return clampPosition(
+    window.innerWidth - LAUNCHER_SIZE - 20,
+    window.innerHeight - LAUNCHER_SIZE - 20,
+  );
+}
+
+// Anchors the chat panel next to wherever the launcher currently sits,
+// flipping to whichever side of the launcher has more room instead of
+// always opening bottom-right — otherwise dragging the launcher near an
+// edge could open the panel off-screen.
+const PANEL_GAP = 12;
+function panelStyleFor(pos) {
+  const centerX = pos.x + LAUNCHER_SIZE / 2;
+  const centerY = pos.y + LAUNCHER_SIZE / 2;
+  const openLeft = centerX > window.innerWidth / 2;
+  const openAbove = centerY > window.innerHeight / 2;
+
+  const style = {};
+  if (openLeft) {
+    style.right = window.innerWidth - pos.x + PANEL_GAP;
+  } else {
+    style.left = pos.x;
+  }
+  if (openAbove) {
+    style.bottom = window.innerHeight - pos.y + PANEL_GAP;
+  } else {
+    style.top = pos.y + LAUNCHER_SIZE + PANEL_GAP;
+  }
+  return style;
+}
 
 function loadHistory() {
   try {
@@ -68,6 +127,62 @@ export default function ChatWidget() {
   const inputRef = useRef(null);
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  const [launcherPos, setLauncherPos] = useState(() => loadPosition() || defaultPosition());
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStateRef = useRef(null); // { startX, startY, originX, originY, moved }
+
+  // Keep the launcher on-screen if the window is resized (e.g. rotating a
+  // device, or a saved position from a much larger screen).
+  useEffect(() => {
+    const onResize = () => {
+      setLauncherPos((pos) => clampPosition(pos.x, pos.y));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const handleLauncherPointerDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return; // left-click / primary touch only
+    dragStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: launcherPos.x,
+      originY: launcherPos.y,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleLauncherPointerMove = (e) => {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    drag.moved = true;
+    if (!isDragging) setIsDragging(true);
+    setLauncherPos(clampPosition(drag.originX + dx, drag.originY + dy));
+  };
+
+  const handleLauncherPointerUp = () => {
+    const drag = dragStateRef.current;
+    dragStateRef.current = null;
+    if (drag?.moved) {
+      setIsDragging(false);
+      setLauncherPos((pos) => {
+        try {
+          localStorage.setItem(POSITION_KEY, JSON.stringify(pos));
+        } catch {
+          // best-effort — position just won't persist
+        }
+        return pos;
+      });
+    } else {
+      // No real movement — treat as a click.
+      setOpen((o) => !o);
+    }
+  };
 
   const speechSupported = !!getSpeechRecognition();
   const ttsSupported =
@@ -287,11 +402,23 @@ export default function ChatWidget() {
   return (
     <>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onPointerDown={handleLauncherPointerDown}
+        onPointerMove={handleLauncherPointerMove}
+        onPointerUp={handleLauncherPointerUp}
+        onPointerCancel={handleLauncherPointerUp}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
+        title="Drag to move"
+        style={{
+          left: launcherPos.x,
+          top: launcherPos.y,
+          touchAction: "none",
+        }}
         className={cn(
-          "fixed bottom-5 right-5 z-90 h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300",
-          "bg-foreground text-background hover:opacity-90 hover:scale-105 active:scale-95",
+          "fixed z-90 h-14 w-14 rounded-full shadow-2xl flex items-center justify-center select-none",
+          "bg-foreground text-background hover:opacity-90 active:scale-95",
+          isDragging
+            ? "cursor-grabbing scale-110 transition-transform duration-75"
+            : "cursor-grab hover:scale-105 transition-all duration-300",
         )}
       >
         {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
@@ -299,11 +426,12 @@ export default function ChatWidget() {
 
       {open && (
         <div
+          style={isExpanded ? undefined : panelStyleFor(launcherPos)}
           className={cn(
             "chat-panel-in chat-panel-surface fixed z-90 flex flex-col overflow-hidden transition-[width,height,top,left,right,bottom,border-radius] duration-300 ease-out",
             isExpanded
               ? "inset-4 sm:inset-6 rounded-2xl"
-              : "bottom-24 right-5 w-[calc(100vw-2.5rem)] max-w-sm sm:max-w-md h-[min(640px,calc(100vh-8rem))] rounded-2xl",
+              : "w-[calc(100vw-2.5rem)] max-w-sm sm:max-w-md h-[min(640px,calc(100vh-8rem))] rounded-2xl",
           )}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">

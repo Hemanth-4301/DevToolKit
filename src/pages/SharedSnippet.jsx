@@ -184,7 +184,7 @@ export default function SharedSnippet() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100vh-57px)]">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <span className="font-mono text-sm font-medium truncate">/{slug}</span>
