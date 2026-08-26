@@ -33,10 +33,8 @@ function autosaveDelayFor(length) {
 // Polling interval for picking up another viewer's saved changes without
 // a page refresh — Vercel's plain serverless functions have no
 // persistent connection, so this is the simplest way to approximate live
-// sync without adding a third-party real-time service. Kept fairly wide
-// so that many concurrent tabs (each polling independently) don't add up
-// to significant database load.
-const POLL_INTERVAL_MS = 6000;
+// sync without adding a third-party real-time service.
+const POLL_INTERVAL_MS = 2000;
 
 export default function SharedSnippet() {
   const { slug } = useParams();

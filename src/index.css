@@ -831,6 +831,31 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   animation: code-typing-reveal 2.4s steps(var(--type-steps, 20)) infinite;
 }
 
+/* ── EDITOR-WINDOW LOADER (Code Share, big variant) ──
+   A mock code-editor window whose lines type themselves in on a
+   staggered loop, plus a soft ambient glow behind the card. */
+@keyframes editor-loader-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+.editor-loader-glow {
+  animation: editor-loader-glow 3s ease-in-out infinite;
+}
+
+.editor-loader-line {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  width: 0;
+  animation-name: code-typing-reveal;
+  animation-duration: 2.6s;
+  animation-timing-function: steps(var(--type-steps, 20));
+  animation-iteration-count: infinite;
+  animation-delay: var(--type-delay, 0s);
+}
+
 .floating-code {
   animation: float-up linear infinite;
   position: absolute;
