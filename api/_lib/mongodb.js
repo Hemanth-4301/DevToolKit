@@ -15,7 +15,18 @@ function getClientPromise() {
     throw new Error("MONGODB_URI environment variable is not set");
   }
   if (!cachedClient) {
-    const client = new MongoClient(uri);
+    // Each serverless instance gets its own client (and thus its own
+    // connection pool) — under concurrent load, many warm instances can
+    // exist at once. Atlas's free tier (M0) caps at 500 total
+    // connections, so keeping each instance's pool small avoids a burst
+    // of traffic exhausting that cap; a single instance only ever
+    // handles a handful of concurrent requests anyway.
+    const client = new MongoClient(uri, {
+      maxPoolSize: 5,
+      minPoolSize: 0,
+      maxIdleTimeMS: 30_000,
+      serverSelectionTimeoutMS: 8_000,
+    });
     cachedClient = client.connect();
     global._mongoClientPromise = cachedClient;
   }

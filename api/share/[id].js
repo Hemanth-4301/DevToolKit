@@ -1,4 +1,5 @@
 import { getSharesCollection } from "../_lib/mongodb.js";
+import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 
 // Matches custom slugs — lowercase letters, numbers, and hyphens (see
 // api/_lib/validate.js's SLUG_RE, the source of truth for the format).
@@ -9,6 +10,15 @@ export default async function handler(req, res) {
 
   if (typeof id !== "string" || !SHARE_ID_RE.test(id)) {
     return res.status(400).json({ error: "Invalid link." });
+  }
+
+  // Reads happen often by design (client-side polling for live sync), so
+  // they get a much higher ceiling than writes — this only catches a
+  // genuinely runaway client, not normal usage even across many tabs.
+  const readLimited = isRateLimited(`read:${clientKeyFor(req)}`, 120);
+  const writeLimited = req.method === "DELETE" && isRateLimited(`delete:${clientKeyFor(req)}`, 20);
+  if (readLimited || writeLimited) {
+    return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
   try {

@@ -778,6 +778,14 @@ html.dev-mode :focus-visible {
 html.dev-mode *::-webkit-scrollbar-thumb { background: hsl(var(--dev-cyan) / 0.3); }
 html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan) / 0.6); }
 
+/* Scrollable but with no visible scrollbar track/thumb — still fully
+   usable via wheel, trackpad, touch, or drag. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ── ANIMATIONS ── */
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
@@ -803,6 +811,25 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
 
 .cursor-blink { animation: blink-cursor 1s step-end infinite; }
 .bounce-down { animation: bounce-down 1.4s ease-in-out infinite; }
+
+/* ── CODE-TYPING LOADER (Code Share) ──
+   Reveals a line of text character-by-character via animated `width` on
+   a `ch`-sized monospace container, then holds and resets — a terminal
+   "typing" loop rather than a generic spinner. */
+@keyframes code-typing-reveal {
+  0% { width: 0; }
+  55% { width: var(--type-chars, 20ch); }
+  85% { width: var(--type-chars, 20ch); }
+  100% { width: 0; }
+}
+
+.code-typing-loader {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 0;
+  animation: code-typing-reveal 2.4s steps(var(--type-steps, 20)) infinite;
+}
 
 .floating-code {
   animation: float-up linear infinite;

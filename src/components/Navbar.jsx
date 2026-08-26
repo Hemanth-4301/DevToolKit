@@ -10,9 +10,10 @@ const TABS = [
   { id: "sql", label: "SQL Formatter" },
   { id: "diff", label: "Diff Checker" },
   { id: "base64", label: "Base64 Converter" },
-  { id: "html", label: "HTML Previewer" },
-  { id: "jwt", label: "JWT Decoder" },
+  { id: "code-share", label: "Code Share" },
   { id: "stringify", label: "Stringify ↔ JSON" },
+  { id: "jwt", label: "JWT Decoder" },
+  { id: "html", label: "HTML Previewer" },
 ];
 
 // Generous window — real people rarely click faster than ~150ms apart but
@@ -31,6 +32,8 @@ export default function Navbar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const tabRefs = useRef({});
   const tabsWrapperRef = useRef(null);
+  const tabsScrollRef = useRef(null);
+  const [tabsOverflow, setTabsOverflow] = useState(false);
   const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   const [glowKey, setGlowKey] = useState(0);
   const isFirstRun = useRef(true);
@@ -95,6 +98,16 @@ export default function Navbar({
     } else {
       setIndicator((i) => ({ ...i, opacity: 0 }));
     }
+
+    // When the tabs overflow their container, centering fights with
+    // scrolling — a centered flex row clips content symmetrically instead
+    // of letting you scroll to the start, which can hide the first/last
+    // tabs entirely. Switch to left-aligned only once they actually
+    // overflow, so short tab lists still stay centered.
+    const scrollEl = tabsScrollRef.current;
+    if (scrollEl) {
+      setTabsOverflow(scrollEl.scrollWidth > scrollEl.clientWidth + 1);
+    }
   };
 
   useLayoutEffect(() => {
@@ -156,7 +169,13 @@ export default function Navbar({
           ref={tabsWrapperRef}
           className="hidden lg:flex flex-1 relative min-w-0"
         >
-          <div className="flex items-center gap-1 w-full justify-center overflow-x-auto relative">
+          <div
+            ref={tabsScrollRef}
+            className={cn(
+              "no-scrollbar flex items-center gap-1 w-full overflow-x-auto relative",
+              tabsOverflow ? "justify-start" : "justify-center",
+            )}
+          >
             {/* Sliding active-tab indicator */}
             <span
               className={cn(

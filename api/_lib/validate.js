@@ -1,12 +1,16 @@
-export const MAX_CODE_LENGTH = 200_000; // ~200KB of source text
+// Vercel serverless functions hard-cap the request body at 4.5MB — this
+// stays under that once the JSON envelope (slug + quoting overhead) is
+// accounted for. A larger client-side limit would just fail every request
+// with a 413 before validation ever runs.
+export const MAX_CODE_LENGTH = 4_000_000; // ~4MB of source text
 
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 
-// Slugs live at the site root (e.g. yoursite.com/hem), so anything that
-// collides with an existing top-level route — a tool tab or a reserved
-// path — must be blocked before it ever reaches the database.
+// Slugs live at the site root (e.g. yoursite.com/hem). Tool names (json,
+// sql, jwt, ...) are intentionally NOT reserved — those tools are only
+// reachable via the navbar, not a URL — so only real routes, API paths,
+// and static assets are blocked here.
 export const RESERVED_SLUGS = new Set([
-  "json", "sql", "diff", "base64", "html", "jwt", "stringify",
   "code-share", "share", "api", "assets", "src", "favicon.ico",
   "logo.png", "index.html", "robots.txt", "sitemap.xml",
 ]);
@@ -22,8 +26,11 @@ export function validateCreatePayload(body) {
 
   const { code, slug } = body;
 
-  if (typeof code !== "string" || !code.trim()) {
-    return { error: "Code is required." };
+  // Empty is valid — the editor is always-editable, so clearing existing
+  // content (e.g. select-all + delete) is a deliberate edit, not an
+  // invalid request. Only non-string values are rejected.
+  if (typeof code !== "string") {
+    return { error: "Code must be a string." };
   }
   if (code.length > MAX_CODE_LENGTH) {
     return { error: `Code exceeds the maximum size of ${MAX_CODE_LENGTH.toLocaleString()} characters.` };

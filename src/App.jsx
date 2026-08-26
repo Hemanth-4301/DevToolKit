@@ -9,29 +9,26 @@ import StringifyConverter from "./pages/StringifyConverter";
 import DiffChecker from "./pages/DiffChecker";
 import JwtDecoder from "./pages/JwtDecoder";
 import HtmlPreviewer from "./pages/HtmlPreviewer";
-import SharedSnippet, { RESERVED_SLUGS } from "./pages/SharedSnippet";
+import CodeShareLanding from "./pages/CodeShareLanding";
+import SharedSnippet from "./pages/SharedSnippet";
 import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
 import PinUnlockModal from "./components/PinUnlockModal";
 
 const CHAT_UNLOCK_KEY = "devtoolkit_chat_unlocked";
 
-// Tab ids map 1:1 to top-level routes so the existing Navbar/HomePage
-// components (which only know about `activeTab` + `onTabChange`) keep
-// working unmodified on top of real URLs.
+// Only "home" and "code-share" are real URLs — every other tab (json,
+// sql, jwt, ...) is reached purely by clicking the navbar and lives in
+// memory only, so that any other top-level path the user types (e.g.
+// "/json", "/anything") is free to be used as a Code Share slug instead.
 const TAB_ROUTES = {
   home: "/",
-  json: "/json",
-  sql: "/sql",
-  diff: "/diff",
-  base64: "/base64",
-  html: "/html",
-  jwt: "/jwt",
-  stringify: "/stringify",
+  "code-share": "/code-share",
 };
 const ROUTE_TABS = Object.fromEntries(
   Object.entries(TAB_ROUTES).map(([tab, route]) => [route, tab]),
 );
+const URL_BACKED_TABS = new Set(Object.keys(TAB_ROUTES));
 
 export default function App() {
   return (
@@ -44,8 +41,37 @@ export default function App() {
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const activeTab = ROUTE_TABS[location.pathname] || "home";
-  const setActiveTab = (tab) => navigate(TAB_ROUTES[tab] || "/");
+
+  // A path is a "slug route" (potential shared-snippet link) when it's a
+  // single top-level segment that isn't "/" or "/code-share" — e.g. "/hem"
+  // or even "/json", since the JSON Formatter tool no longer owns that URL.
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const isSlugRoute = pathSegments.length === 1 && !(location.pathname in ROUTE_TABS);
+
+  // "home" and "code-share" are real routes; every other tab (json, sql,
+  // ...) is pure in-memory state that never touches the URL, so the URL
+  // alone can't tell them apart from "home" — `lastTab` is the source of
+  // truth for which of those is showing, and is only reset by an explicit
+  // navigation to "/" or "/code-share" (including via browser back/forward,
+  // handled by the effect below).
+  const [lastTab, setLastTab] = useState("home");
+  useEffect(() => {
+    if (location.pathname in ROUTE_TABS) {
+      setLastTab(ROUTE_TABS[location.pathname]);
+    }
+  }, [location.pathname]);
+
+  const activeTab = isSlugRoute ? null : lastTab;
+  const setActiveTab = (tab) => {
+    setLastTab(tab);
+    if (URL_BACKED_TABS.has(tab)) {
+      navigate(TAB_ROUTES[tab]);
+    } else if (isSlugRoute || location.pathname === "/code-share") {
+      // Coming from a slug page or the Code Share landing page — both are
+      // real routes — hop back to "/" so the in-memory tab can render.
+      navigate("/");
+    }
+  };
   const [devMode, setDevMode] = useState(() => {
     const saved = localStorage.getItem("devtoolkit_devmode");
     return saved !== null ? JSON.parse(saved) : false;
@@ -85,15 +111,6 @@ function AppShell() {
     localStorage.setItem(CHAT_UNLOCK_KEY, "true");
     setShowPinModal(false);
   };
-
-  // A path is a "slug route" (potential shared-snippet link) when it's a
-  // single top-level segment that isn't one of the known tab routes or
-  // other reserved paths — e.g. "/hem", but not "/json" or "/code-share".
-  const pathSegments = location.pathname.split("/").filter(Boolean);
-  const isSlugRoute =
-    pathSegments.length === 1 &&
-    !(location.pathname in ROUTE_TABS) &&
-    !RESERVED_SLUGS.has(pathSegments[0].toLowerCase());
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -141,6 +158,10 @@ function AppShell() {
 
             <section className={activeTab === "html" ? "block" : "hidden"}>
               <HtmlPreviewer />
+            </section>
+
+            <section className={activeTab === "code-share" ? "block" : "hidden"}>
+              <CodeShareLanding />
             </section>
           </>
         )}

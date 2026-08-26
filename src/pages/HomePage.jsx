@@ -12,6 +12,7 @@ import {
   HardDrive,
   Sparkles,
   Globe,
+  Share2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -142,10 +143,22 @@ const TOOLS = [
     iconBg: "bg-purple-500/15",
     badge: "Bidirectional",
   },
+  {
+    id: "code-share",
+    icon: Share2,
+    name: "Code Share",
+    desc: "Pick a link, start typing, and it saves automatically — share the URL with anyone.",
+    color: "text-indigo-400",
+    glow: "shadow-indigo-500/20",
+    gradient: "from-indigo-500/15 to-indigo-600/5",
+    border: "border-indigo-500/25 hover:border-indigo-400/50",
+    iconBg: "bg-indigo-500/15",
+    badge: "Shareable Link",
+  },
 ];
 
 const STATS = [
-  { icon: Zap, label: "7 Tools" },
+  { icon: Zap, label: "8 Tools" },
   { icon: WifiOff, label: "100% Offline" },
   { icon: UserX, label: "No Sign-up" },
   { icon: HardDrive, label: "localStorage" },
@@ -384,7 +397,7 @@ export default function HomePage({ onTabChange, devMode }) {
             Everything you need, nothing you don't.
           </h2>
           <p className="text-muted-foreground text-base">
-            Seven powerful tools, zero dependencies, all in your browser.
+            Eight powerful tools, zero dependencies, all in your browser.
           </p>
         </div>
 

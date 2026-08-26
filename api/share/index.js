@@ -1,10 +1,15 @@
 import { getSharesCollection } from "../_lib/mongodb.js";
 import { validateCreatePayload } from "../_lib/validate.js";
+import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
+  }
+
+  if (isRateLimited(`save:${clientKeyFor(req)}`)) {
+    return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
   const validated = validateCreatePayload(req.body);
@@ -16,23 +21,25 @@ export default async function handler(req, res) {
     const collection = await getSharesCollection();
     const now = new Date();
 
-    await collection.insertOne({
-      shareId: validated.slug,
-      code: validated.code,
-      createdAt: now,
-    });
+    // Upsert — a slug's page is always editable, so saving again just
+    // updates the existing document instead of failing as a duplicate.
+    // `createdAt` is only set on first insert ($setOnInsert), preserved on
+    // every subsequent edit.
+    const result = await collection.findOneAndUpdate(
+      { shareId: validated.slug },
+      {
+        $set: { code: validated.code, updatedAt: now },
+        $setOnInsert: { shareId: validated.slug, createdAt: now },
+      },
+      { upsert: true, returnDocument: "after" },
+    );
 
     return res.status(201).json({
       id: validated.slug,
-      createdAt: now.toISOString(),
+      createdAt: result.createdAt.toISOString(),
     });
   } catch (err) {
-    if (err?.code === 11000) {
-      return res.status(409).json({
-        error: `"${validated.slug}" is already taken. Try a different link.`,
-      });
-    }
-    console.error("Failed to create share:", err);
-    return res.status(500).json({ error: "Failed to create share. Please try again." });
+    console.error("Failed to save share:", err);
+    return res.status(500).json({ error: "Failed to save. Please try again." });
   }
 }
