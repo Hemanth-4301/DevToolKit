@@ -1334,15 +1334,50 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   66% { transform: translate(-20px, 25px) scale(0.95); }
 }
 
-.admin-login-card {
+.admin-login-card-wrap {
   animation: admin-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform: perspective(800px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
   transition: transform 0.15s ease-out;
+  padding: 2px;
+  border-radius: 1.05rem;
 }
 
 @keyframes admin-card-in {
   0% { opacity: 0; transform: perspective(800px) translateY(24px) scale(0.94); }
   100% { opacity: 1; transform: perspective(800px) translateY(0) scale(1); }
+}
+
+/* Rotating conic-gradient ring, revealed only along a thin border via
+   padding on the wrapper + the inner card sitting on top — avoids
+   clip-path/mask browser quirks while still reading as an animated
+   border rather than a glow behind the whole card. */
+.admin-login-card-border {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    hsl(var(--primary)),
+    hsl(var(--dev-cyan, var(--primary))),
+    hsl(var(--primary) / 0.3),
+    hsl(var(--dev-cyan, var(--primary))),
+    hsl(var(--primary))
+  );
+  animation: admin-border-spin 5s linear infinite;
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes admin-border-spin {
+  to { --border-angle: 360deg; }
+}
+
+.admin-login-card {
+  position: relative;
 }
 
 .admin-login-shake {
