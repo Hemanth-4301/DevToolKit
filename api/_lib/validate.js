@@ -7,12 +7,12 @@ export const MAX_CODE_LENGTH = 4_000_000; // ~4MB of source text
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 
 // Slugs live at the site root (e.g. yoursite.com/hem). Tool names (json,
-// sql, jwt, ...) are intentionally NOT reserved — those tools are only
-// reachable via the navbar, not a URL — so only real routes, API paths,
-// and static assets are blocked here.
+// sql, jwt, admin, ...) are intentionally NOT reserved — those tools are
+// only reachable via the navbar (or logo triple-click, for admin), not a
+// URL — so only real routes, API paths, and static assets are blocked here.
 export const RESERVED_SLUGS = new Set([
   "code-share", "share", "api", "assets", "src", "favicon.ico",
-  "logo.png", "index.html", "robots.txt", "sitemap.xml", "admin",
+  "logo.png", "index.html", "robots.txt", "sitemap.xml",
 ]);
 
 // Validates and normalizes a raw POST body into a safe shape. Returns

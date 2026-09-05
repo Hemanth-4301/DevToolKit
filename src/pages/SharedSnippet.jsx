@@ -80,12 +80,13 @@ const darkHighlight = HighlightStyle.define([
 
 // Kept in sync with api/_lib/validate.js's RESERVED_SLUGS — top-level
 // paths that must never be treated as a shared-snippet slug. Tool names
-// (json, sql, jwt, ...) are intentionally NOT reserved: those tools are
-// only reachable via the navbar now, so their names are free to use as
-// slugs — only real routes, API paths, and static assets are off-limits.
+// (json, sql, jwt, admin, ...) are intentionally NOT reserved: those tools
+// are only reachable via the navbar (or logo triple-click, for admin) now,
+// so their names are free to use as slugs — only real routes, API paths,
+// and static assets are off-limits.
 export const RESERVED_SLUGS = new Set([
   "code-share", "share", "api", "assets", "src", "favicon.ico",
-  "logo.png", "index.html", "robots.txt", "sitemap.xml", "admin",
+  "logo.png", "index.html", "robots.txt", "sitemap.xml",
 ]);
 
 // Kept in sync with api/_lib/validate.js's MAX_CODE_LENGTH — Vercel

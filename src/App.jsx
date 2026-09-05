@@ -16,14 +16,14 @@ import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
 import { useAdminAuth } from "./hooks/use-admin-auth";
 
-// Only "home", "code-share", and "admin" are real URLs — every other tab
-// (json, sql, jwt, ...) is reached purely by clicking the navbar and lives
-// in memory only, so that any other top-level path the user types (e.g.
-// "/json", "/anything") is free to be used as a Code Share slug instead.
+// Only "home" and "code-share" are real URLs — every other tab (json, sql,
+// jwt, admin, ...) is reached purely by clicking the navbar (or, for admin,
+// the logo triple-click) and lives in memory only, so that any other
+// top-level path the user types (e.g. "/json", "/admin", "/anything") is
+// free to be used as a Code Share slug instead.
 const TAB_ROUTES = {
   home: "/",
   "code-share": "/code-share",
-  admin: "/admin",
 };
 const ROUTE_TABS = Object.fromEntries(
   Object.entries(TAB_ROUTES).map(([tab, route]) => [route, tab]),
