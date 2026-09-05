@@ -10,6 +10,9 @@ import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
 import { getShare, createShare } from "../lib/codeShareApi";
 import { detectLanguageId, languageExtensionFor, LANGUAGE_OPTIONS } from "../lib/detectLanguage";
+import { EDITOR_THEMES, getEditorTheme } from "../lib/editorThemes";
+
+const EDITOR_THEME_STORAGE_KEY = "devtoolkit_codeshare_theme";
 
 // Matches the app's CSS variable theme so the editor doesn't look like a
 // foreign widget dropped onto the page — used instead of CodeMirror's
@@ -132,6 +135,12 @@ export default function SharedSnippet() {
     return () => observer.disconnect();
   }, []);
   const [selectedLang, setSelectedLang] = useState("auto");
+  const [editorThemeId, setEditorThemeId] = useState(
+    () => localStorage.getItem(EDITOR_THEME_STORAGE_KEY) || "default",
+  );
+  useEffect(() => {
+    localStorage.setItem(EDITOR_THEME_STORAGE_KEY, editorThemeId);
+  }, [editorThemeId]);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -282,15 +291,16 @@ export default function SharedSnippet() {
     [selectedLang, code],
   );
   const languageExtension = useMemo(() => languageExtensionFor(effectiveLangId), [effectiveLangId]);
+  const selectedEditorTheme = getEditorTheme(editorThemeId);
   const extensions = useMemo(() => {
-    const exts = [
-      cmTheme,
-      syntaxHighlighting(isDark ? darkHighlight : lightHighlight),
-      EditorView.lineWrapping,
-    ];
+    const exts =
+      selectedEditorTheme.id === "default"
+        ? [cmTheme, syntaxHighlighting(isDark ? darkHighlight : lightHighlight)]
+        : [selectedEditorTheme.extension];
+    exts.push(EditorView.lineWrapping);
     if (languageExtension) exts.push(languageExtension);
     return exts;
-  }, [languageExtension, isDark]);
+  }, [languageExtension, isDark, selectedEditorTheme]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-57px)]">
@@ -310,6 +320,21 @@ export default function SharedSnippet() {
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <div className="relative shrink-0">
+            <select
+              value={editorThemeId}
+              onChange={(e) => setEditorThemeId(e.target.value)}
+              aria-label="Editor theme"
+              className="appearance-none pl-2 pr-6 py-1 text-xs rounded border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+            >
+              {EDITOR_THEMES.map((th) => (
+                <option key={th.id} value={th.id}>
+                  {th.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="h-3 w-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+          </div>
           <div className="relative shrink-0">
             <select
               value={selectedLang}
