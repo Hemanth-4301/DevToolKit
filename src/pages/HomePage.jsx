@@ -43,7 +43,8 @@ const BINARY_RAIN_COLUMNS = Array.from(
       duration: `${5 + rand() * 5}s`,
       fontSize: `${11 + Math.floor(rand() * 4)}px`,
     };
-});
+  },
+);
 
 const FLOATING_SNIPPETS = [
   { text: '{"name": "dev"}', x: "5%", delay: "0s", duration: "12s" },
@@ -320,9 +321,7 @@ export default function HomePage({ onTabChange, devMode }) {
                   ? "text-[#0b0d10] studio-glow-strong shimmer-hover hover:-translate-y-0.5"
                   : "bg-foreground text-background hover:opacity-90",
               )}
-              style={
-                devMode ? { background: "var(--dev-fill)" } : undefined
-              }
+              style={devMode ? { background: "var(--dev-fill)" } : undefined}
             >
               Open JSON Formatter →
             </button>

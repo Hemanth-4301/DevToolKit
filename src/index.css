@@ -378,7 +378,7 @@ html.dev-mode .nav-tab-landing {
 
 @layer components {
   .tool-page {
-    @apply max-w-screen-xl mx-auto px-4 sm:px-5 lg:px-6 py-5 sm:py-6 lg:py-8;
+    @apply max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 lg:py-8;
   }
 
   .tool-page-header {
@@ -394,7 +394,7 @@ html.dev-mode .nav-tab-landing {
   }
 
   .tool-toolbar {
-    @apply mb-5 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center;
+    @apply mb-4 sm:mb-5 flex flex-col gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 sm:flex-row sm:flex-wrap sm:items-center;
     position: relative;
     background: hsl(var(--card));
     isolation: isolate;
@@ -431,7 +431,7 @@ html.dev-mode .nav-tab-landing {
   }
 
   .tool-toolbar-main {
-    @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-1.5 sm:gap-2;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -745,18 +745,37 @@ html.dev-mode :focus-visible {
 }
 
 @media (max-width: 640px) {
+  .tool-panel-actions {
+    gap: 0.375rem;
+  }
+
   .tool-panel-actions > button,
   .tool-panel-actions > div {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
   }
 
   .tool-panel-actions button {
-    min-width: 2.25rem;
+    min-height: 2rem;
+    min-width: 2rem;
+  }
+
+  .tool-toolbar-main {
+    gap: 0.375rem;
+  }
+
+  .tool-toolbar-main > button,
+  .tool-toolbar-main > div {
+    flex: 0 0 auto;
   }
 
   .tool-toolbar select,
   .tool-toolbar input {
     width: 100%;
+  }
+
+  .tool-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
 
