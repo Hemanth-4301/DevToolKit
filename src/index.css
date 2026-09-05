@@ -745,8 +745,38 @@ html.dev-mode :focus-visible {
 }
 
 @media (max-width: 640px) {
+  .tool-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Toolbar controls (segmented groups, toggle pills, action buttons) are
+     hand-authored per page with text-xs/py-1.5-ish Tailwind classes — too
+     dense as touch targets and too tightly packed as a group. Rather than
+     editing every page, bump size/spacing at the CSS layer for anything
+     living inside the shared toolbar/panel-action containers. */
+  .tool-toolbar-main {
+    gap: 0.5rem;
+    row-gap: 0.625rem;
+  }
+
+  .tool-toolbar-main > button,
+  .tool-toolbar-main > div {
+    flex: 0 0 auto;
+  }
+
+  .tool-toolbar-main > button,
+  .tool-toolbar-main > div > button {
+    min-height: 2.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+    font-size: 0.8125rem;
+  }
+
   .tool-panel-actions {
-    gap: 0.375rem;
+    gap: 0.5rem;
   }
 
   .tool-panel-actions > button,
@@ -755,27 +785,23 @@ html.dev-mode :focus-visible {
   }
 
   .tool-panel-actions button {
-    min-height: 2rem;
-    min-width: 2rem;
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
   }
 
-  .tool-toolbar-main {
-    gap: 0.375rem;
-  }
-
-  .tool-toolbar-main > button,
-  .tool-toolbar-main > div {
-    flex: 0 0 auto;
+  .tool-toolbar-action {
+    min-height: 2.75rem;
+    font-size: 0.875rem;
   }
 
   .tool-toolbar select,
   .tool-toolbar input {
     width: 100%;
-  }
-
-  .tool-page {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    min-height: 2.5rem;
   }
 }
 
