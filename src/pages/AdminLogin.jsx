@@ -62,7 +62,7 @@ export default function AdminLogin({ auth }) {
       >
         <div className="flex flex-col items-center gap-3 mb-8">
           <div className="admin-login-icon flex items-center justify-center h-14 w-14 rounded-2xl">
-            <Shield className="h-7 w-7 text-accent-foreground" />
+            <Shield className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-card-foreground">Admin Access</h1>
           <p className="text-xs text-muted-foreground text-center">
@@ -115,7 +115,7 @@ export default function AdminLogin({ auth }) {
           <button
             type="submit"
             disabled={submitting}
-            className="admin-login-submit relative mt-2 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-accent-foreground disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden"
+            className="admin-login-submit relative mt-2 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-primary-foreground disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden"
           >
             {submitting ? (
               <>
