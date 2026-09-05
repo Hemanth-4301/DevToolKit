@@ -11,19 +11,19 @@ import JwtDecoder from "./pages/JwtDecoder";
 import HtmlPreviewer from "./pages/HtmlPreviewer";
 import CodeShareLanding from "./pages/CodeShareLanding";
 import SharedSnippet from "./pages/SharedSnippet";
+import AdminArea from "./pages/AdminArea";
 import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
-import PinUnlockModal from "./components/PinUnlockModal";
+import { useAdminAuth } from "./hooks/use-admin-auth";
 
-const CHAT_UNLOCK_KEY = "devtoolkit_chat_unlocked";
-
-// Only "home" and "code-share" are real URLs — every other tab (json,
-// sql, jwt, ...) is reached purely by clicking the navbar and lives in
-// memory only, so that any other top-level path the user types (e.g.
+// Only "home", "code-share", and "admin" are real URLs — every other tab
+// (json, sql, jwt, ...) is reached purely by clicking the navbar and lives
+// in memory only, so that any other top-level path the user types (e.g.
 // "/json", "/anything") is free to be used as a Code Share slug instead.
 const TAB_ROUTES = {
   home: "/",
   "code-share": "/code-share",
+  admin: "/admin",
 };
 const ROUTE_TABS = Object.fromEntries(
   Object.entries(TAB_ROUTES).map(([tab, route]) => [route, tab]),
@@ -87,10 +87,7 @@ function AppShell() {
     const saved = localStorage.getItem("devtoolkit_devmode");
     return saved !== null ? JSON.parse(saved) : false;
   });
-  const [chatUnlocked, setChatUnlocked] = useState(() => {
-    return localStorage.getItem(CHAT_UNLOCK_KEY) === "true";
-  });
-  const [showPinModal, setShowPinModal] = useState(false);
+  const adminAuth = useAdminAuth();
 
   useEffect(() => {
     localStorage.setItem("devtoolkit_devmode", JSON.stringify(devMode));
@@ -117,12 +114,6 @@ function AppShell() {
     }
   }, [devMode]);
 
-  const handleChatUnlock = () => {
-    setChatUnlocked(true);
-    localStorage.setItem(CHAT_UNLOCK_KEY, "true");
-    setShowPinModal(false);
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar
@@ -130,7 +121,7 @@ function AppShell() {
         onTabChange={setActiveTab}
         devMode={devMode}
         onDevModeToggle={() => setDevMode((d) => !d)}
-        onLogoTripleClick={() => setShowPinModal(true)}
+        onLogoTripleClick={() => setActiveTab("admin")}
       />
       <main className="overflow-x-hidden">
         {isSlugRoute ? (
@@ -174,16 +165,15 @@ function AppShell() {
             <section className={activeTab === "code-share" ? "block" : "hidden"}>
               <CodeShareLanding />
             </section>
+
+            <section className={activeTab === "admin" ? "block" : "hidden"}>
+              <AdminArea auth={adminAuth} />
+            </section>
           </>
         )}
       </main>
       <ToastContainer />
-      {chatUnlocked && <ChatWidget />}
-      <PinUnlockModal
-        open={showPinModal}
-        onClose={() => setShowPinModal(false)}
-        onSuccess={handleChatUnlock}
-      />
+      {adminAuth.authenticated && <ChatWidget />}
     </div>
   );
 }

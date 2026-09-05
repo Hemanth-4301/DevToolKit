@@ -9,7 +9,7 @@ const COLLECTION_NAME = "codeShares";
 // request within the same warm instance.
 let cachedClient = global._mongoClientPromise;
 
-function getClientPromise() {
+export function getClientPromise() {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     throw new Error("MONGODB_URI environment variable is not set");

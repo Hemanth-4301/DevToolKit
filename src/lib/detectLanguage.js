@@ -1,34 +1,5 @@
 import { langs } from "@uiw/codemirror-extensions-langs";
 
-// Curated subset of @uiw/codemirror-extensions-langs shown in the manual
-// language picker — the full package exposes 100+ loaders (many obscure
-// aliases), so this trims it to the languages people actually paste.
-export const LANGUAGE_OPTIONS = [
-  { id: "auto", label: "Auto-detect" },
-  { id: "plain", label: "Plain text" },
-  { id: "js", label: "JavaScript" },
-  { id: "jsx", label: "JSX" },
-  { id: "ts", label: "TypeScript" },
-  { id: "tsx", label: "TSX" },
-  { id: "python", label: "Python" },
-  { id: "java", label: "Java" },
-  { id: "c", label: "C" },
-  { id: "cpp", label: "C++" },
-  { id: "cs", label: "C#" },
-  { id: "go", label: "Go" },
-  { id: "rust", label: "Rust" },
-  { id: "php", label: "PHP" },
-  { id: "rb", label: "Ruby" },
-  { id: "sql", label: "SQL" },
-  { id: "html", label: "HTML" },
-  { id: "xml", label: "XML" },
-  { id: "css", label: "CSS" },
-  { id: "json", label: "JSON" },
-  { id: "yaml", label: "YAML" },
-  { id: "markdown", label: "Markdown" },
-  { id: "sh", label: "Shell" },
-];
-
 export function languageExtensionFor(id) {
   if (!id || id === "auto" || id === "plain") return null;
   const loader = langs[id];
@@ -69,8 +40,8 @@ function isJson(text) {
   }
 }
 
-// Returns a language id (from LANGUAGE_OPTIONS) detected from the text, or
-// null if it doesn't look like recognizable code (plain prose/notes).
+// Returns a CodeMirror language id detected from the text, or null if it
+// doesn't look like recognizable code (plain prose/notes).
 export function detectLanguageId(text) {
   const trimmed = text.trim();
   if (!trimmed) return null;

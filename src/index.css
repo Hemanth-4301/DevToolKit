@@ -694,9 +694,8 @@ html.dev-mode [class*="bg-\[#abf2bc\]"] {
   background-color: hsl(145 60% 45% / 0.22) !important;
 }
 
-/* ── FIND & REPLACE / PIN MODAL surfaces ── */
-html.dev-mode .fr-modal,
-html.dev-mode .pin-modal-in {
+/* ── FIND & REPLACE modal surface ── */
+html.dev-mode .fr-modal {
   background: hsl(var(--popover)) !important;
   border: 1px solid hsl(var(--dev-cyan) / 0.4) !important;
   box-shadow: none;
@@ -1275,17 +1274,82 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   75%, to { stroke-dashoffset: 439.82; transform: translate(100px, 100px) rotate(112deg); }
 }
 
-/* ── PIN UNLOCK MODAL ── */
-@keyframes pin-modal-in {
-  0%   { opacity: 0; transform: scale(0.9) translateY(8px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+/* ── ADMIN LOGIN ── */
+.admin-login-bg {
+  background: hsl(var(--background));
 }
 
-.pin-modal-in {
-  animation: pin-modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+.admin-login-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
 }
 
-@keyframes pin-shake {
+.admin-login-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.35;
+  pointer-events: none;
+  animation: admin-orb-float 14s ease-in-out infinite;
+}
+
+.admin-login-orb-1 {
+  width: 340px;
+  height: 340px;
+  top: -80px;
+  left: -60px;
+  background: hsl(var(--ring));
+  animation-delay: 0s;
+}
+
+.admin-login-orb-2 {
+  width: 260px;
+  height: 260px;
+  bottom: -60px;
+  right: -40px;
+  background: hsl(var(--accent-foreground) / 0.5);
+  animation-delay: -5s;
+}
+
+.admin-login-orb-3 {
+  width: 200px;
+  height: 200px;
+  top: 40%;
+  right: 15%;
+  background: hsl(var(--dev-cyan, var(--ring)));
+  animation-delay: -9s;
+  opacity: 0.25;
+}
+
+@keyframes admin-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.1); }
+  66% { transform: translate(-20px, 25px) scale(0.95); }
+}
+
+.admin-login-card {
+  animation: admin-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform: perspective(800px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+  transition: transform 0.15s ease-out;
+}
+
+@keyframes admin-card-in {
+  0% { opacity: 0; transform: perspective(800px) translateY(24px) scale(0.94); }
+  100% { opacity: 1; transform: perspective(800px) translateY(0) scale(1); }
+}
+
+.admin-login-shake {
+  animation: admin-login-shake-kf 0.4s ease-in-out;
+}
+
+@keyframes admin-login-shake-kf {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-8px); }
   40% { transform: translateX(8px); }
@@ -1293,8 +1357,79 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   80% { transform: translateX(6px); }
 }
 
-.pin-shake {
-  animation: pin-shake 0.4s ease-in-out;
+.admin-login-icon {
+  background: linear-gradient(135deg, hsl(var(--ring)), hsl(var(--dev-cyan, var(--ring)) / 0.7));
+  box-shadow: 0 0 24px hsl(var(--ring) / 0.5);
+  animation: admin-icon-pulse 3s ease-in-out infinite;
+}
+
+@keyframes admin-icon-pulse {
+  0%, 100% { box-shadow: 0 0 16px hsl(var(--ring) / 0.4); }
+  50% { box-shadow: 0 0 28px hsl(var(--ring) / 0.65); }
+}
+
+.admin-login-submit {
+  background: linear-gradient(135deg, hsl(var(--ring)), hsl(var(--dev-cyan, var(--ring)) / 0.8));
+  background-size: 200% 200%;
+  animation: admin-submit-gradient 4s ease infinite;
+  transition: filter 0.2s ease, transform 0.1s ease;
+}
+
+.admin-login-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.admin-login-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+@keyframes admin-submit-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ── ADMIN DASHBOARD ── */
+.admin-dash-bg {
+  background:
+    radial-gradient(ellipse 900px 500px at 10% -10%, hsl(var(--ring) / 0.08), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, hsl(var(--dev-cyan, var(--ring)) / 0.06), transparent 60%),
+    hsl(var(--background));
+}
+
+.admin-dash-title {
+  background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--ring)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.admin-stat-tile {
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-stat-tile:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--ring) / 0.4);
+}
+
+.admin-stat-icon-accent {
+  background: linear-gradient(135deg, hsl(var(--ring) / 0.25), hsl(var(--dev-cyan, var(--ring)) / 0.2));
+}
+
+.admin-settings-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.admin-settings-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.4);
 }
 
 /* ── AI CHAT WIDGET ── */

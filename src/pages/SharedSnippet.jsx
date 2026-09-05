@@ -9,8 +9,9 @@ import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
 import { getShare, createShare } from "../lib/codeShareApi";
-import { detectLanguageId, languageExtensionFor, LANGUAGE_OPTIONS } from "../lib/detectLanguage";
+import { detectLanguageId, languageExtensionFor } from "../lib/detectLanguage";
 import { EDITOR_THEMES, getEditorTheme } from "../lib/editorThemes";
+import { formatTimestamp } from "../lib/formatDate";
 
 const EDITOR_THEME_STORAGE_KEY = "devtoolkit_codeshare_theme";
 
@@ -107,19 +108,6 @@ function autosaveDelayFor(length) {
 // sync without adding a third-party real-time service.
 const POLL_INTERVAL_MS = 2000;
 
-// DD/MM/YYYY, h:mm AM/PM — e.g. "05/09/2026, 2:30 PM".
-function formatTimestamp(value) {
-  const d = new Date(value);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  let hours = d.getHours();
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${dd}/${mm}/${yyyy}, ${hours}:${minutes} ${ampm}`;
-}
-
 export default function SharedSnippet() {
   const { slug } = useParams();
   // Both regular dark mode and Dev Mode add the "dark" class to <html>
@@ -134,7 +122,6 @@ export default function SharedSnippet() {
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
-  const [selectedLang, setSelectedLang] = useState("auto");
   const [editorThemeId, setEditorThemeId] = useState(
     () => localStorage.getItem(EDITOR_THEME_STORAGE_KEY) || "default",
   );
@@ -286,10 +273,7 @@ export default function SharedSnippet() {
     scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const effectiveLangId = useMemo(
-    () => (selectedLang === "auto" ? detectLanguageId(code) : selectedLang),
-    [selectedLang, code],
-  );
+  const effectiveLangId = useMemo(() => detectLanguageId(code), [code]);
   const languageExtension = useMemo(() => languageExtensionFor(effectiveLangId), [effectiveLangId]);
   const selectedEditorTheme = getEditorTheme(editorThemeId);
   const extensions = useMemo(() => {
@@ -330,21 +314,6 @@ export default function SharedSnippet() {
               {EDITOR_THEMES.map((th) => (
                 <option key={th.id} value={th.id}>
                   {th.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="h-3 w-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
-          </div>
-          <div className="relative shrink-0">
-            <select
-              value={selectedLang}
-              onChange={(e) => setSelectedLang(e.target.value)}
-              aria-label="Language"
-              className="appearance-none pl-2 pr-6 py-1 text-xs rounded border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-            >
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
                 </option>
               ))}
             </select>
