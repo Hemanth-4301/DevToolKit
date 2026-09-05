@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
@@ -55,8 +55,18 @@ function AppShell() {
   // navigation to "/" or "/code-share" (including via browser back/forward,
   // handled by the effect below).
   const [lastTab, setLastTab] = useState("home");
+  // Guards against the URL-driven sync effect clobbering a same-tick
+  // setActiveTab("json")-style call: navigating to "/" for an in-memory
+  // tab also matches ROUTE_TABS["/"] === "home", which would otherwise
+  // overwrite the tab we just set with "home" once the route change lands.
+  const pendingTabRef = useRef(null);
   useEffect(() => {
     if (location.pathname in ROUTE_TABS) {
+      if (pendingTabRef.current && !URL_BACKED_TABS.has(pendingTabRef.current)) {
+        setLastTab(pendingTabRef.current);
+        pendingTabRef.current = null;
+        return;
+      }
       setLastTab(ROUTE_TABS[location.pathname]);
     }
   }, [location.pathname]);
@@ -69,6 +79,7 @@ function AppShell() {
     } else if (isSlugRoute || location.pathname === "/code-share") {
       // Coming from a slug page or the Code Share landing page — both are
       // real routes — hop back to "/" so the in-memory tab can render.
+      pendingTabRef.current = tab;
       navigate("/");
     }
   };

@@ -1,10 +1,30 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp } from "lucide-react";
+import CodeMirror from "@uiw/react-codemirror";
+import { EditorView } from "@codemirror/view";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
 import { getShare, createShare } from "../lib/codeShareApi";
+import { detectLanguageExtension } from "../lib/detectLanguage";
+import { useTheme } from "../hooks/use-theme";
+
+// Matches the app's CSS variable theme so the editor doesn't look like a
+// foreign widget dropped onto the page.
+const cmTheme = EditorView.theme({
+  "&": { backgroundColor: "hsl(var(--background))", color: "hsl(var(--foreground))", height: "100%" },
+  ".cm-content": { fontFamily: "var(--font-mono, monospace)", fontSize: "0.875rem", caretColor: "hsl(var(--foreground))" },
+  ".cm-gutters": {
+    backgroundColor: "hsl(var(--background))",
+    color: "hsl(var(--muted-foreground))",
+    border: "none",
+  },
+  ".cm-activeLineGutter": { backgroundColor: "hsl(var(--accent))" },
+  ".cm-activeLine": { backgroundColor: "hsl(var(--accent) / 0.4)" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { overflow: "auto" },
+});
 
 // Kept in sync with api/_lib/validate.js's RESERVED_SLUGS — top-level
 // paths that must never be treated as a shared-snippet slug. Tool names
@@ -38,6 +58,7 @@ const POLL_INTERVAL_MS = 2000;
 
 export default function SharedSnippet() {
   const { slug } = useParams();
+  const { theme } = useTheme();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -52,7 +73,7 @@ export default function SharedSnippet() {
   // can't clobber the UI state after a newer one already resolved.
   const latestSaveTokenRef = useRef(0);
   const lastSavedCodeRef = useRef(null);
-  const textareaRef = useRef(null);
+  const scrollerRef = useRef(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [remoteUpdateAvailable, setRemoteUpdateAvailable] = useState(false);
   // Mirrors state that the polling interval's closure needs to read
@@ -180,8 +201,15 @@ export default function SharedSnippet() {
   };
 
   const handleScrollToTop = () => {
-    textareaRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const languageExtension = useMemo(() => detectLanguageExtension(code), [code]);
+  const extensions = useMemo(() => {
+    const exts = [cmTheme, EditorView.lineWrapping];
+    if (languageExtension) exts.push(languageExtension);
+    return exts;
+  }, [languageExtension]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-57px)]">
@@ -243,15 +271,22 @@ export default function SharedSnippet() {
           </div>
         ) : (
           <>
-            <textarea
-              ref={textareaRef}
+            <CodeMirror
               value={code}
-              onChange={(e) => handleChange(e.target.value)}
-              onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
-              placeholder="Start typing..."
-              spellCheck={false}
+              onChange={handleChange}
+              theme={theme === "dark" ? "dark" : "light"}
+              extensions={extensions}
               autoFocus
-              className="w-full h-full p-4 bg-background font-mono text-sm resize-none focus:outline-none caret-foreground"
+              placeholder="Start typing..."
+              basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+              height="100%"
+              className="h-full [&_.cm-editor]:h-full"
+              onCreateEditor={(view) => {
+                scrollerRef.current = view.scrollDOM;
+                view.scrollDOM.addEventListener("scroll", () => {
+                  setShowScrollTop(view.scrollDOM.scrollTop > 300);
+                });
+              }}
             />
             <button
               type="button"
