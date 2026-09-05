@@ -48,8 +48,6 @@ export default function AdminLogin({ auth }) {
     <div className="admin-login-bg relative flex items-center justify-center min-h-[calc(100vh-57px)] overflow-hidden px-4 py-12">
       <div className="admin-login-orb admin-login-orb-1" />
       <div className="admin-login-orb admin-login-orb-2" />
-      <div className="admin-login-orb admin-login-orb-3" />
-      <div className="admin-login-grid" />
 
       <div
         ref={cardRef}
@@ -57,8 +55,7 @@ export default function AdminLogin({ auth }) {
         onMouseLeave={handleMouseLeave}
         className={cn("admin-login-card-wrap relative w-full max-w-sm", shake && "admin-login-shake")}
       >
-        <div className="admin-login-card-border" />
-        <div className="admin-login-card relative rounded-2xl bg-card/90 backdrop-blur-xl shadow-2xl p-8">
+        <div className="admin-login-card rounded-2xl shadow-2xl p-8">
           <div className="flex flex-col items-center gap-3 mb-8">
             <div className="admin-login-icon flex items-center justify-center h-14 w-14 rounded-2xl">
               <Shield className="h-7 w-7 text-primary-foreground" />

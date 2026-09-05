@@ -1279,53 +1279,31 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   background: hsl(var(--background));
 }
 
-.admin-login-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 75%);
-}
-
 .admin-login-orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(60px);
-  opacity: 0.35;
+  filter: blur(80px);
+  opacity: 0.3;
   pointer-events: none;
-  animation: admin-orb-float 14s ease-in-out infinite;
+  animation: admin-orb-float 16s ease-in-out infinite;
 }
 
 .admin-login-orb-1 {
-  width: 340px;
-  height: 340px;
-  top: -80px;
-  left: -60px;
-  background: hsl(var(--ring));
+  width: 380px;
+  height: 380px;
+  top: -100px;
+  left: -80px;
+  background: hsl(var(--primary));
   animation-delay: 0s;
 }
 
 .admin-login-orb-2 {
-  width: 260px;
-  height: 260px;
-  bottom: -60px;
-  right: -40px;
-  background: hsl(var(--accent-foreground) / 0.5);
-  animation-delay: -5s;
-}
-
-.admin-login-orb-3 {
-  width: 200px;
-  height: 200px;
-  top: 40%;
-  right: 15%;
-  background: hsl(var(--dev-cyan, var(--ring)));
-  animation-delay: -9s;
-  opacity: 0.25;
+  width: 320px;
+  height: 320px;
+  bottom: -100px;
+  right: -80px;
+  background: hsl(var(--dev-cyan, var(--primary)));
+  animation-delay: -8s;
 }
 
 @keyframes admin-orb-float {
@@ -1338,8 +1316,6 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   animation: admin-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform: perspective(800px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
   transition: transform 0.15s ease-out;
-  padding: 2px;
-  border-radius: 1.05rem;
 }
 
 @keyframes admin-card-in {
@@ -1347,37 +1323,64 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   100% { opacity: 1; transform: perspective(800px) translateY(0) scale(1); }
 }
 
-/* Rotating conic-gradient ring, revealed only along a thin border via
-   padding on the wrapper + the inner card sitting on top — avoids
-   clip-path/mask browser quirks while still reading as an animated
-   border rather than a glow behind the whole card. */
-.admin-login-card-border {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--border-angle, 0deg),
-    hsl(var(--primary)),
-    hsl(var(--dev-cyan, var(--primary))),
-    hsl(var(--primary) / 0.3),
-    hsl(var(--dev-cyan, var(--primary))),
-    hsl(var(--primary))
-  );
-  animation: admin-border-spin 5s linear infinite;
-}
-
-@property --border-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes admin-border-spin {
-  to { --border-angle: 360deg; }
-}
-
+/* Same spinning-border technique as .tool-toolbar (see the @layer
+   components rule) — a thin comet of color sweeping around an otherwise
+   plain border, driven by the same --toolbar-angle custom property so
+   both animations stay in sync. */
 .admin-login-card {
   position: relative;
+  isolation: isolate;
+}
+
+.admin-login-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--toolbar-angle, 0deg),
+    hsl(var(--border)) 0%,
+    hsl(var(--border)) 80%,
+    #1d4ed8 83%,
+    #2563eb 86%,
+    #3b82f6 89%,
+    #60a5fa 92%,
+    #93c5fd 95%,
+    #3b82f6 97%,
+    hsl(var(--border)) 100%
+  );
+  animation: toolbar-border-spin 5s linear infinite;
+  z-index: -1;
+}
+
+.admin-login-card::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(1rem - 1px);
+  background: hsl(var(--card) / 0.55);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  z-index: -1;
+}
+
+html.dev-mode .admin-login-card::before {
+  background: conic-gradient(
+    from var(--toolbar-angle, 0deg),
+    hsl(var(--dev-cyan) / 0.3) 0%,
+    hsl(var(--dev-cyan) / 0.3) 80%,
+    hsl(var(--dev-cyan) / 0.5) 83%,
+    hsl(var(--dev-cyan) / 0.75) 86%,
+    hsl(var(--dev-cyan)) 89%,
+    hsl(var(--dev-cyan) / 0.85) 92%,
+    hsl(var(--dev-cyan) / 0.6) 95%,
+    hsl(var(--dev-cyan)) 97%,
+    hsl(var(--dev-cyan) / 0.3) 100%
+  );
+}
+
+html.dev-mode .admin-login-card::after {
+  background: hsl(var(--card) / 0.75);
 }
 
 .admin-login-shake {
