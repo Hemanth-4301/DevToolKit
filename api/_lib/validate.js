@@ -12,7 +12,7 @@ export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 // and static assets are blocked here.
 export const RESERVED_SLUGS = new Set([
   "code-share", "share", "api", "assets", "src", "favicon.ico",
-  "logo.png", "index.html", "robots.txt", "sitemap.xml",
+  "logo.png", "index.html", "robots.txt", "sitemap.xml", "admin",
 ]);
 
 // Validates and normalizes a raw POST body into a safe shape. Returns

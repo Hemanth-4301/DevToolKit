@@ -85,7 +85,7 @@ const darkHighlight = HighlightStyle.define([
 // slugs — only real routes, API paths, and static assets are off-limits.
 export const RESERVED_SLUGS = new Set([
   "code-share", "share", "api", "assets", "src", "favicon.ico",
-  "logo.png", "index.html", "robots.txt", "sitemap.xml",
+  "logo.png", "index.html", "robots.txt", "sitemap.xml", "admin",
 ]);
 
 // Kept in sync with api/_lib/validate.js's MAX_CODE_LENGTH — Vercel
