@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp } from "lucide-react";
+import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
 import { getShare, createShare } from "../lib/codeShareApi";
-import { detectLanguageExtension } from "../lib/detectLanguage";
-import { useTheme } from "../hooks/use-theme";
+import { detectLanguageId, languageExtensionFor, LANGUAGE_OPTIONS } from "../lib/detectLanguage";
 
 // Matches the app's CSS variable theme so the editor doesn't look like a
-// foreign widget dropped onto the page.
+// foreign widget dropped onto the page — used instead of CodeMirror's
+// built-in "light"/"dark" themes, whose fixed palettes clash with Dev
+// Mode's near-black + neon-green surface.
 const cmTheme = EditorView.theme({
   "&": { backgroundColor: "hsl(var(--background))", color: "hsl(var(--foreground))", height: "100%" },
   ".cm-content": { fontFamily: "var(--font-mono, monospace)", fontSize: "0.875rem", caretColor: "hsl(var(--foreground))" },
@@ -24,7 +27,52 @@ const cmTheme = EditorView.theme({
   ".cm-activeLine": { backgroundColor: "hsl(var(--accent) / 0.4)" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": { overflow: "auto" },
+  ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
+    backgroundColor: "hsl(var(--accent)) !important",
+  },
 });
+
+// Light-background palette — chosen for contrast against a white/near-white
+// --background rather than CodeMirror's default light theme.
+const lightHighlight = HighlightStyle.define([
+  { tag: t.keyword, color: "#a626a4" },
+  { tag: [t.name, t.propertyName], color: "#383a42" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "#4078f2" },
+  { tag: t.definition(t.variableName), color: "#986801" },
+  { tag: [t.string, t.special(t.string)], color: "#50a14f" },
+  { tag: t.number, color: "#986801" },
+  { tag: t.bool, color: "#986801" },
+  { tag: t.null, color: "#986801" },
+  { tag: t.comment, color: "#a0a1a7", fontStyle: "italic" },
+  { tag: [t.className, t.typeName], color: "#c18401" },
+  { tag: t.operator, color: "#0184bc" },
+  { tag: [t.tagName], color: "#e45649" },
+  { tag: [t.attributeName], color: "#986801" },
+  { tag: t.meta, color: "#a626a4" },
+  { tag: t.invalid, color: "#e45649" },
+]);
+
+// Dark palette used for both regular dark mode and Dev Mode — tuned
+// against near-black backgrounds (dark: ~4% lightness, dev-mode: ~3%
+// with a green accent), high-contrast without clashing with dev-mode's
+// signature green border/accent color.
+const darkHighlight = HighlightStyle.define([
+  { tag: t.keyword, color: "#c678dd" },
+  { tag: [t.name, t.propertyName], color: "#e5e9f0" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "#61afef" },
+  { tag: t.definition(t.variableName), color: "#e5c07b" },
+  { tag: [t.string, t.special(t.string)], color: "#98c379" },
+  { tag: t.number, color: "#d19a66" },
+  { tag: t.bool, color: "#d19a66" },
+  { tag: t.null, color: "#d19a66" },
+  { tag: t.comment, color: "#7f848e", fontStyle: "italic" },
+  { tag: [t.className, t.typeName], color: "#e5c07b" },
+  { tag: t.operator, color: "#56b6c2" },
+  { tag: [t.tagName], color: "#e06c75" },
+  { tag: [t.attributeName], color: "#d19a66" },
+  { tag: t.meta, color: "#c678dd" },
+  { tag: t.invalid, color: "#f44747" },
+]);
 
 // Kept in sync with api/_lib/validate.js's RESERVED_SLUGS — top-level
 // paths that must never be treated as a shared-snippet slug. Tool names
@@ -56,9 +104,34 @@ function autosaveDelayFor(length) {
 // sync without adding a third-party real-time service.
 const POLL_INTERVAL_MS = 2000;
 
+// DD/MM/YYYY, h:mm AM/PM — e.g. "05/09/2026, 2:30 PM".
+function formatTimestamp(value) {
+  const d = new Date(value);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${dd}/${mm}/${yyyy}, ${hours}:${minutes} ${ampm}`;
+}
+
 export default function SharedSnippet() {
   const { slug } = useParams();
-  const { theme } = useTheme();
+  // Both regular dark mode and Dev Mode add the "dark" class to <html>
+  // (see App.jsx), so reading it directly covers both without needing a
+  // separate devMode prop threaded down to this page.
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  const [selectedLang, setSelectedLang] = useState("auto");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -204,12 +277,20 @@ export default function SharedSnippet() {
     scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const languageExtension = useMemo(() => detectLanguageExtension(code), [code]);
+  const effectiveLangId = useMemo(
+    () => (selectedLang === "auto" ? detectLanguageId(code) : selectedLang),
+    [selectedLang, code],
+  );
+  const languageExtension = useMemo(() => languageExtensionFor(effectiveLangId), [effectiveLangId]);
   const extensions = useMemo(() => {
-    const exts = [cmTheme, EditorView.lineWrapping];
+    const exts = [
+      cmTheme,
+      syntaxHighlighting(isDark ? darkHighlight : lightHighlight),
+      EditorView.lineWrapping,
+    ];
     if (languageExtension) exts.push(languageExtension);
     return exts;
-  }, [languageExtension]);
+  }, [languageExtension, isDark]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-57px)]">
@@ -218,7 +299,7 @@ export default function SharedSnippet() {
           <span className="font-mono text-sm font-medium truncate">/{slug}</span>
           {createdAt && (
             <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
-              Created {new Date(createdAt).toLocaleString()}
+              Created {formatTimestamp(createdAt)}
             </span>
           )}
           <SaveStatus state={saveState} />
@@ -229,6 +310,21 @@ export default function SharedSnippet() {
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <div className="relative shrink-0">
+            <select
+              value={selectedLang}
+              onChange={(e) => setSelectedLang(e.target.value)}
+              aria-label="Language"
+              className="appearance-none pl-2 pr-6 py-1 text-xs rounded border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+            >
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="h-3 w-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+          </div>
           <button
             onClick={handleCopyLink}
             className={cn(
@@ -274,7 +370,7 @@ export default function SharedSnippet() {
             <CodeMirror
               value={code}
               onChange={handleChange}
-              theme={theme === "dark" ? "dark" : "light"}
+              theme="none"
               extensions={extensions}
               autoFocus
               placeholder="Start typing..."
