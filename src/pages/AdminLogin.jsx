@@ -46,9 +46,6 @@ export default function AdminLogin({ auth }) {
 
   return (
     <div className="admin-login-bg relative flex items-center justify-center min-h-[calc(100vh-57px)] overflow-hidden px-4 py-12">
-      <div className="admin-login-orb admin-login-orb-1" />
-      <div className="admin-login-orb admin-login-orb-2" />
-
       <div
         ref={cardRef}
         onMouseMove={handleMouseMove}

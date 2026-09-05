@@ -1279,39 +1279,6 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   background: hsl(var(--background));
 }
 
-.admin-login-orb {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(80px);
-  opacity: 0.3;
-  pointer-events: none;
-  animation: admin-orb-float 16s ease-in-out infinite;
-}
-
-.admin-login-orb-1 {
-  width: 380px;
-  height: 380px;
-  top: -100px;
-  left: -80px;
-  background: hsl(var(--primary));
-  animation-delay: 0s;
-}
-
-.admin-login-orb-2 {
-  width: 320px;
-  height: 320px;
-  bottom: -100px;
-  right: -80px;
-  background: hsl(var(--dev-cyan, var(--primary)));
-  animation-delay: -8s;
-}
-
-@keyframes admin-orb-float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.1); }
-  66% { transform: translate(-20px, 25px) scale(0.95); }
-}
-
 .admin-login-card-wrap {
   animation: admin-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform: perspective(800px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
@@ -1358,9 +1325,7 @@ html.dev-mode *::-webkit-scrollbar-thumb:hover { background: hsl(var(--dev-cyan)
   position: absolute;
   inset: 1px;
   border-radius: calc(1rem - 1px);
-  background: hsl(var(--card) / 0.55);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  background: hsl(var(--card));
   z-index: -1;
 }
 
@@ -1380,7 +1345,7 @@ html.dev-mode .admin-login-card::before {
 }
 
 html.dev-mode .admin-login-card::after {
-  background: hsl(var(--card) / 0.75);
+  background: hsl(var(--card));
 }
 
 .admin-login-shake {
