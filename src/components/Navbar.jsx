@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { Terminal, Menu, X, Cpu } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Terminal, Menu, X, Cpu, ChevronDown } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useTheme } from "../hooks/use-theme";
 import ThemeSwitch from "./ThemeSwitch";
@@ -15,6 +16,14 @@ const TABS = [
   { id: "jwt", label: "JWT Decoder" },
   { id: "html", label: "HTML Previewer" },
 ];
+
+// First 4 real tools stay inline in the desktop navbar; the rest live in a
+// "More Tools" hover dropdown so the bar doesn't grow a new pill for every
+// tool added going forward.
+const PRIMARY_TAB_IDS = new Set(["json", "sql", "diff", "base64"]);
+const OVERFLOW_TABS = TABS.filter(
+  (t) => t.id !== "home" && !PRIMARY_TAB_IDS.has(t.id),
+);
 
 // Generous window — real people rarely click faster than ~150ms apart but
 // also aren't perfectly rhythmic, so this favors registering the sequence
@@ -85,7 +94,10 @@ export default function Navbar({
   }, []);
 
   const measure = () => {
-    const el = tabRefs.current[activeTab];
+    const isOverflowActive = OVERFLOW_TABS.some((t) => t.id === activeTab);
+    const el = isOverflowActive
+      ? tabRefs.current.__more
+      : tabRefs.current[activeTab];
     const wrapper = tabsWrapperRef.current;
     if (el && wrapper) {
       const elRect = el.getBoundingClientRect();
@@ -205,7 +217,7 @@ export default function Navbar({
                 background: devMode ? "var(--dev-fill)" : undefined,
               }}
             />
-            {TABS.filter((t) => t.id !== "home").map((tab) => (
+            {TABS.filter((t) => t.id !== "home" && PRIMARY_TAB_IDS.has(t.id)).map((tab) => (
               <NavTab
                 key={tab.id}
                 tab={tab}
@@ -216,6 +228,12 @@ export default function Navbar({
                 registerRef={(el) => (tabRefs.current[tab.id] = el)}
               />
             ))}
+            <MoreToolsMenu
+              activeTab={activeTab}
+              devMode={devMode}
+              onTabChange={onTabChange}
+              registerRef={(el) => (tabRefs.current.__more = el)}
+            />
           </div>
         </div>
 
@@ -308,6 +326,115 @@ export default function Navbar({
         </div>
       )}
     </nav>
+  );
+}
+
+// Hover-open "More Tools" dropdown for the overflow tabs (5th tool onward).
+// Closing is debounced by a short delay so moving the pointer from the
+// trigger down into the menu doesn't flicker-close it in the gap between.
+const MORE_MENU_CLOSE_DELAY_MS = 150;
+
+function MoreToolsMenu({ activeTab, devMode, onTabChange, registerRef }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const closeTimer = useRef(null);
+  const triggerRef = useRef(null);
+
+  const scheduleClose = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), MORE_MENU_CLOSE_DELAY_MS);
+  };
+  const cancelClose = () => clearTimeout(closeTimer.current);
+
+  const openMenu = () => {
+    cancelClose();
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setCoords({ top: rect.bottom + 8, left: rect.left + rect.width / 2 });
+    }
+    setOpen(true);
+  };
+
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  const isActive = OVERFLOW_TABS.some((t) => t.id === activeTab);
+
+  return (
+    <div
+      className="relative z-10"
+      onMouseEnter={openMenu}
+      onMouseLeave={scheduleClose}
+    >
+      <button
+        ref={(el) => {
+          triggerRef.current = el;
+          registerRef(el);
+        }}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        className={cn(
+          "flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors duration-200 whitespace-nowrap",
+          isActive
+            ? devMode
+              ? "text-emerald-300 font-medium"
+              : "text-foreground font-medium"
+            : devMode
+              ? "text-emerald-400/50 hover:text-emerald-300"
+              : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        More Tools
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 pointer-events-none"
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
+          >
+            <div
+              className={cn(
+                "pointer-events-auto absolute w-48 -translate-x-1/2 rounded-lg border p-1.5 shadow-lg",
+                "animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150",
+                devMode
+                  ? "border-emerald-400/30 bg-black"
+                  : "border-border bg-popover",
+              )}
+              style={{ top: coords.top, left: coords.left }}
+            >
+              {OVERFLOW_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    onTabChange(tab.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full rounded-md px-3 py-2 text-left text-sm transition-colors duration-150 whitespace-nowrap",
+                    activeTab === tab.id
+                      ? devMode
+                        ? "bg-emerald-400/10 text-emerald-300 font-medium"
+                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                      : devMode
+                        ? "text-emerald-400/60 hover:bg-emerald-400/10 hover:text-emerald-300"
+                        : "text-muted-foreground hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
   );
 }
 
