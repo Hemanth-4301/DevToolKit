@@ -17,13 +17,7 @@ const TABS = [
   { id: "html", label: "HTML Previewer" },
 ];
 
-// First 4 real tools stay inline in the desktop navbar; the rest live in a
-// "More Tools" hover dropdown so the bar doesn't grow a new pill for every
-// tool added going forward.
-const PRIMARY_TAB_IDS = new Set(["json", "sql", "diff", "base64"]);
-const OVERFLOW_TABS = TABS.filter(
-  (t) => t.id !== "home" && !PRIMARY_TAB_IDS.has(t.id),
-);
+const TOOL_TABS = TABS.filter((t) => t.id !== "home");
 
 // Generous window — real people rarely click faster than ~150ms apart but
 // also aren't perfectly rhythmic, so this favors registering the sequence
@@ -41,8 +35,11 @@ export default function Navbar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const tabRefs = useRef({});
   const tabsWrapperRef = useRef(null);
-  const tabsScrollRef = useRef(null);
-  const [tabsOverflow, setTabsOverflow] = useState(false);
+  const tabMeasureRefs = useRef({});
+  const moreMeasureRef = useRef(null);
+  const [visibleTabIds, setVisibleTabIds] = useState(() =>
+    TOOL_TABS.map((tab) => tab.id),
+  );
   const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   const [glowKey, setGlowKey] = useState(0);
   const isFirstRun = useRef(true);
@@ -94,7 +91,10 @@ export default function Navbar({
   }, []);
 
   const measure = () => {
-    const isOverflowActive = OVERFLOW_TABS.some((t) => t.id === activeTab);
+    const overflowTabs = TOOL_TABS.filter(
+      (tab) => !visibleTabIds.includes(tab.id),
+    );
+    const isOverflowActive = overflowTabs.some((t) => t.id === activeTab);
     const el = isOverflowActive
       ? tabRefs.current.__more
       : tabRefs.current[activeTab];
@@ -116,10 +116,40 @@ export default function Navbar({
     // of letting you scroll to the start, which can hide the first/last
     // tabs entirely. Switch to left-aligned only once they actually
     // overflow, so short tab lists still stay centered.
-    const scrollEl = tabsScrollRef.current;
-    if (scrollEl) {
-      setTabsOverflow(scrollEl.scrollWidth > scrollEl.clientWidth + 1);
+    const availableWidth = wrapper?.clientWidth;
+    const moreWidth = moreMeasureRef.current?.getBoundingClientRect().width;
+    if (!availableWidth || !moreWidth) return;
+
+    const widths = TOOL_TABS.map((tab) => ({
+      id: tab.id,
+      width: tabMeasureRefs.current[tab.id]?.getBoundingClientRect().width,
+    }));
+    if (widths.some((tab) => !tab.width)) return;
+
+    const gap = 4; // Tailwind's gap-1
+    const allToolsWidth = widths.reduce((total, tab) => total + tab.width, 0)
+      + gap * (widths.length - 1);
+    let nextVisibleIds;
+
+    if (allToolsWidth <= availableWidth) {
+      nextVisibleIds = widths.map((tab) => tab.id);
+    } else {
+      // Reserve the overflow trigger first, then fill the remaining space.
+      let usedWidth = moreWidth;
+      nextVisibleIds = [];
+      for (const tab of widths) {
+        if (usedWidth + gap + tab.width > availableWidth) break;
+        nextVisibleIds.push(tab.id);
+        usedWidth += gap + tab.width;
+      }
     }
+
+    setVisibleTabIds((current) =>
+      current.length === nextVisibleIds.length
+      && current.every((id, index) => id === nextVisibleIds[index])
+        ? current
+        : nextVisibleIds,
+    );
   };
 
   useLayoutEffect(() => {
@@ -130,12 +160,17 @@ export default function Navbar({
       return;
     }
     setGlowKey((k) => k + 1);
-  }, [activeTab]);
+  }, [activeTab, visibleTabIds]);
 
   useEffect(() => {
+    const observer = new ResizeObserver(measure);
+    if (tabsWrapperRef.current) observer.observe(tabsWrapperRef.current);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [activeTab]);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [visibleTabIds]);
 
   return (
     <nav
@@ -181,13 +216,7 @@ export default function Navbar({
           ref={tabsWrapperRef}
           className="hidden lg:flex flex-1 relative min-w-0"
         >
-          <div
-            ref={tabsScrollRef}
-            className={cn(
-              "no-scrollbar flex items-center gap-1 w-full overflow-x-auto relative",
-              tabsOverflow ? "justify-start" : "justify-center",
-            )}
-          >
+          <div className="flex items-center justify-center gap-1 w-full relative">
             {/* Sliding active-tab indicator */}
             <span
               className={cn(
@@ -217,7 +246,7 @@ export default function Navbar({
                 background: devMode ? "var(--dev-fill)" : undefined,
               }}
             />
-            {TABS.filter((t) => t.id !== "home" && PRIMARY_TAB_IDS.has(t.id)).map((tab) => (
+            {TOOL_TABS.filter((tab) => visibleTabIds.includes(tab.id)).map((tab) => (
               <NavTab
                 key={tab.id}
                 tab={tab}
@@ -228,12 +257,36 @@ export default function Navbar({
                 registerRef={(el) => (tabRefs.current[tab.id] = el)}
               />
             ))}
-            <MoreToolsMenu
-              activeTab={activeTab}
-              devMode={devMode}
-              onTabChange={onTabChange}
-              registerRef={(el) => (tabRefs.current.__more = el)}
-            />
+            {TOOL_TABS.some((tab) => !visibleTabIds.includes(tab.id)) && (
+              <MoreToolsMenu
+                tabs={TOOL_TABS.filter((tab) => !visibleTabIds.includes(tab.id))}
+                activeTab={activeTab}
+                devMode={devMode}
+                onTabChange={onTabChange}
+                registerRef={(el) => (tabRefs.current.__more = el)}
+              />
+            )}
+          </div>
+          {/* Keeps sizing independent from which tools are currently visible. */}
+          <div
+            aria-hidden="true"
+            className="absolute invisible pointer-events-none flex items-center gap-1 whitespace-nowrap"
+          >
+            {TOOL_TABS.map((tab) => (
+              <span
+                key={tab.id}
+                ref={(el) => (tabMeasureRefs.current[tab.id] = el)}
+                className="px-3 py-1.5 text-sm"
+              >
+                {tab.label}
+              </span>
+            ))}
+            <span
+              ref={moreMeasureRef}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
+              More Tools <ChevronDown className="h-3.5 w-3.5" />
+            </span>
           </div>
         </div>
 
@@ -334,7 +387,7 @@ export default function Navbar({
 // trigger down into the menu doesn't flicker-close it in the gap between.
 const MORE_MENU_CLOSE_DELAY_MS = 150;
 
-function MoreToolsMenu({ activeTab, devMode, onTabChange, registerRef }) {
+function MoreToolsMenu({ tabs, activeTab, devMode, onTabChange, registerRef }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const closeTimer = useRef(null);
@@ -357,7 +410,7 @@ function MoreToolsMenu({ activeTab, devMode, onTabChange, registerRef }) {
 
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
-  const isActive = OVERFLOW_TABS.some((t) => t.id === activeTab);
+  const isActive = tabs.some((t) => t.id === activeTab);
 
   return (
     <div
@@ -409,7 +462,7 @@ function MoreToolsMenu({ activeTab, devMode, onTabChange, registerRef }) {
               )}
               style={{ top: coords.top, left: coords.left }}
             >
-              {OVERFLOW_TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => {
