@@ -182,6 +182,8 @@ export default function SharedSnippet() {
   // can't clobber the UI state after a newer one already resolved.
   const latestSaveTokenRef = useRef(0);
   const lastSavedCodeRef = useRef(null);
+  // Preserve bucket structure while the checkbox is temporarily turned off.
+  const bucketSnapshotRef = useRef(null);
   const scrollerRef = useRef(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [remoteUpdateAvailable, setRemoteUpdateAvailable] = useState(false);
@@ -196,6 +198,7 @@ export default function SharedSnippet() {
 
   useEffect(() => {
     let cancelled = false;
+    bucketSnapshotRef.current = null;
     setLoading(true);
     setLoadError(null);
     (async () => {
@@ -206,6 +209,7 @@ export default function SharedSnippet() {
         if (loadedBuckets) {
           setBucketMode(true);
           setBuckets(loadedBuckets);
+          bucketSnapshotRef.current = loadedBuckets;
         } else {
           setBucketMode(false);
           setCode(data.code);
@@ -248,6 +252,7 @@ export default function SharedSnippet() {
           if (remoteBuckets) {
             setBucketMode(true);
             setBuckets(remoteBuckets);
+            bucketSnapshotRef.current = remoteBuckets;
           } else {
             setBucketMode(false);
             setCode(data.code);
@@ -311,6 +316,9 @@ export default function SharedSnippet() {
   };
 
   const handleChange = (text) => {
+    // A real edit in flat mode intentionally replaces the previous bucket
+    // snapshot; re-enabling buckets should create one bucket from this text.
+    if (!bucketMode) bucketSnapshotRef.current = null;
     setCode(text);
     scheduleSave(text);
   };
@@ -320,6 +328,7 @@ export default function SharedSnippet() {
       bucket.id === id ? { ...bucket, [field]: value } : bucket,
     );
     setBuckets(nextBuckets);
+    bucketSnapshotRef.current = nextBuckets;
     scheduleSave(serializeBuckets(nextBuckets));
   };
 
@@ -329,6 +338,7 @@ export default function SharedSnippet() {
       createBucket(`Bucket ${bucketsRef.current.length + 1}`),
     ];
     setBuckets(nextBuckets);
+    bucketSnapshotRef.current = nextBuckets;
     scheduleSave(serializeBuckets(nextBuckets));
   };
 
@@ -336,19 +346,24 @@ export default function SharedSnippet() {
     if (bucketsRef.current.length === 1) return;
     const nextBuckets = bucketsRef.current.filter((bucket) => bucket.id !== id);
     setBuckets(nextBuckets);
+    bucketSnapshotRef.current = nextBuckets;
     scheduleSave(serializeBuckets(nextBuckets));
   };
 
   const toggleBucketMode = (enabled) => {
     if (enabled) {
-      const nextBuckets = [createBucket("Bucket 1", code)];
+      const nextBuckets = bucketSnapshotRef.current?.length
+        ? bucketSnapshotRef.current
+        : [createBucket("Bucket 1", code)];
       setBuckets(nextBuckets);
       setBucketMode(true);
+      bucketSnapshotRef.current = nextBuckets;
       scheduleSave(serializeBuckets(nextBuckets));
     } else {
       const nextCode = combinedBucketCode(bucketsRef.current);
       setCode(nextCode);
       setBucketMode(false);
+      bucketSnapshotRef.current = bucketsRef.current;
       scheduleSave(nextCode);
     }
   };
@@ -546,9 +561,20 @@ export default function SharedSnippet() {
 }
 
 function BucketEditor({ bucket, index, canRemove, extensions, copied, onChange, onCopy, onRemove }) {
+  const [expanded, setExpanded] = useState(true);
+
   return (
     <section className="w-full lg:w-[calc(50%-0.75rem)] min-w-0 rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background/60">
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${bucket.title || `bucket ${index + 1}`}`}
+          aria-expanded={expanded}
+          className="p-1 -ml-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+        </button>
         <input
           type="text"
           value={bucket.title}
@@ -579,16 +605,18 @@ function BucketEditor({ bucket, index, canRemove, extensions, copied, onChange, 
           </button>
         )}
       </div>
-      <CodeMirror
-        value={bucket.code}
-        onChange={(value) => onChange(bucket.id, "code", value)}
-        theme="none"
-        extensions={extensions}
-        placeholder="Function or code block..."
-        basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
-        minHeight="220px"
-        className="[&_.cm-editor]:min-h-[220px]"
-      />
+      {expanded && (
+        <CodeMirror
+          value={bucket.code}
+          onChange={(value) => onChange(bucket.id, "code", value)}
+          theme="none"
+          extensions={extensions}
+          placeholder="Function or code block..."
+          basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+          minHeight="220px"
+          className="[&_.cm-editor]:min-h-[220px]"
+        />
+      )}
     </section>
   );
 }
