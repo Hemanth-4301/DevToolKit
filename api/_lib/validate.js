@@ -1,8 +1,4 @@
-// Vercel serverless functions hard-cap the request body at 4.5MB — this
-// stays under that once the JSON envelope (slug + quoting overhead) is
-// accounted for. A larger client-side limit would just fail every request
-// with a 413 before validation ever runs.
-export const MAX_CODE_LENGTH = 4_000_000; // ~4MB of source text
+export const MAX_CODE_LENGTH = 10_000_000; // ~10MB of source text
 
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 

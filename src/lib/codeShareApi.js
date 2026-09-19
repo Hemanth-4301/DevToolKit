@@ -1,5 +1,8 @@
 const API_BASE = "/api/share";
 
+// Keep the client-side guard aligned with api/_lib/validate.js.
+export const MAX_CODE_LENGTH = 10_000_000;
+
 async function parseJsonSafe(res) {
   try {
     return await res.json();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown } from "lucide-react";
+import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -8,7 +8,7 @@ import { tags as t } from "@lezer/highlight";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
-import { getShare, createShare } from "../lib/codeShareApi";
+import { getShare, createShare, MAX_CODE_LENGTH } from "../lib/codeShareApi";
 import { detectLanguageId, languageExtensionFor } from "../lib/detectLanguage";
 import { EDITOR_THEMES, getEditorTheme } from "../lib/editorThemes";
 import { formatTimestamp } from "../lib/formatDate";
@@ -89,10 +89,46 @@ export const RESERVED_SLUGS = new Set([
   "logo.png", "index.html", "robots.txt", "sitemap.xml",
 ]);
 
-// Kept in sync with api/_lib/validate.js's MAX_CODE_LENGTH — Vercel
-// serverless functions hard-cap request bodies at 4.5MB, so this is the
-// largest payload that can actually reach the API in one request.
-export const MAX_CODE_LENGTH = 4_000_000; // ~4MB of text
+// Kept in sync with api/_lib/validate.js's MAX_CODE_LENGTH.
+const BUCKET_FORMAT = "devtoolkit-buckets-v1";
+
+function createBucket(title = "Bucket 1", code = "") {
+  return {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    code,
+  };
+}
+
+function parseBucketDocument(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.format !== BUCKET_FORMAT || !Array.isArray(parsed.buckets)) return null;
+    const buckets = parsed.buckets
+      .filter((bucket) => bucket && typeof bucket.code === "string")
+      .map((bucket, index) => ({
+        id: bucket.id || `${Date.now().toString(36)}-${index}`,
+        title: typeof bucket.title === "string" && bucket.title.trim()
+          ? bucket.title
+          : `Bucket ${index + 1}`,
+        code: bucket.code,
+      }));
+    return buckets.length ? buckets : [createBucket()];
+  } catch {
+    return null;
+  }
+}
+
+function serializeBuckets(buckets) {
+  return JSON.stringify({
+    format: BUCKET_FORMAT,
+    buckets: buckets.map(({ title, code }) => ({ title, code })),
+  });
+}
+
+function combinedBucketCode(buckets) {
+  return buckets.map((bucket) => bucket.code).filter(Boolean).join("\n\n");
+}
 
 // How long to wait after the user stops typing before autosaving. Scaled
 // up for large payloads so a multi-MB snippet isn't re-uploaded on every
@@ -134,7 +170,10 @@ export default function SharedSnippet() {
   const [loadError, setLoadError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saveState, setSaveState] = useState("idle"); // idle | pending | saving | saved | error
+  const [bucketMode, setBucketMode] = useState(false);
+  const [buckets, setBuckets] = useState(() => [createBucket()]);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedBucketId, setCopiedBucketId] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [createdAt, setCreatedAt] = useState(null);
 
@@ -150,7 +189,10 @@ export default function SharedSnippet() {
   // without re-subscribing the interval on every keystroke.
   const isEditingRef = useRef(false);
   const codeRef = useRef("");
-  codeRef.current = code;
+  const bucketsRef = useRef(buckets);
+  bucketsRef.current = buckets;
+  const persistedContent = bucketMode ? serializeBuckets(buckets) : code;
+  codeRef.current = persistedContent;
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +202,14 @@ export default function SharedSnippet() {
       try {
         const data = await getShare(slug);
         if (cancelled) return;
-        setCode(data.code);
+        const loadedBuckets = parseBucketDocument(data.code);
+        if (loadedBuckets) {
+          setBucketMode(true);
+          setBuckets(loadedBuckets);
+        } else {
+          setBucketMode(false);
+          setCode(data.code);
+        }
         setCreatedAt(data.createdAt);
         lastSavedCodeRef.current = data.code;
       } catch (err) {
@@ -195,7 +244,14 @@ export default function SharedSnippet() {
         const data = await getShare(slug);
         if (isEditingRef.current) return; // re-check post-await
         if (data.code !== codeRef.current) {
-          setCode(data.code);
+          const remoteBuckets = parseBucketDocument(data.code);
+          if (remoteBuckets) {
+            setBucketMode(true);
+            setBuckets(remoteBuckets);
+          } else {
+            setBucketMode(false);
+            setCode(data.code);
+          }
           lastSavedCodeRef.current = data.code;
           setCreatedAt(data.createdAt);
           setRemoteUpdateAvailable(true);
@@ -231,12 +287,11 @@ export default function SharedSnippet() {
     [slug],
   );
 
-  const handleChange = (text) => {
+  const scheduleSave = (text) => {
     if (text.length > MAX_CODE_LENGTH) {
       setSaveError(`Code exceeds the maximum size of ${(MAX_CODE_LENGTH / 1_000_000).toFixed(0)}MB.`);
       return;
     }
-    setCode(text);
     setSaveError(null);
     clearTimeout(saveTimerRef.current);
 
@@ -255,12 +310,64 @@ export default function SharedSnippet() {
     );
   };
 
+  const handleChange = (text) => {
+    setCode(text);
+    scheduleSave(text);
+  };
+
+  const handleBucketChange = (id, field, value) => {
+    const nextBuckets = bucketsRef.current.map((bucket) =>
+      bucket.id === id ? { ...bucket, [field]: value } : bucket,
+    );
+    setBuckets(nextBuckets);
+    scheduleSave(serializeBuckets(nextBuckets));
+  };
+
+  const addBucket = () => {
+    const nextBuckets = [
+      ...bucketsRef.current,
+      createBucket(`Bucket ${bucketsRef.current.length + 1}`),
+    ];
+    setBuckets(nextBuckets);
+    scheduleSave(serializeBuckets(nextBuckets));
+  };
+
+  const removeBucket = (id) => {
+    if (bucketsRef.current.length === 1) return;
+    const nextBuckets = bucketsRef.current.filter((bucket) => bucket.id !== id);
+    setBuckets(nextBuckets);
+    scheduleSave(serializeBuckets(nextBuckets));
+  };
+
+  const toggleBucketMode = (enabled) => {
+    if (enabled) {
+      const nextBuckets = [createBucket("Bucket 1", code)];
+      setBuckets(nextBuckets);
+      setBucketMode(true);
+      scheduleSave(serializeBuckets(nextBuckets));
+    } else {
+      const nextCode = combinedBucketCode(bucketsRef.current);
+      setCode(nextCode);
+      setBucketMode(false);
+      scheduleSave(nextCode);
+    }
+  };
+
   const handleCopyCode = async () => {
-    if (!code) return;
-    await navigator.clipboard.writeText(code);
+    const textToCopy = bucketMode ? combinedBucketCode(buckets) : code;
+    if (!textToCopy) return;
+    await navigator.clipboard.writeText(textToCopy);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
     addToast({ title: "Code copied!", type: "success" });
+  };
+
+  const handleCopyBucket = async (bucket) => {
+    if (!bucket.code) return;
+    await navigator.clipboard.writeText(bucket.code);
+    setCopiedBucketId(bucket.id);
+    setTimeout(() => setCopiedBucketId((current) => current === bucket.id ? null : current), 2000);
+    addToast({ title: `${bucket.title || "Bucket"} copied!`, type: "success" });
   };
 
   const handleCopyLink = async () => {
@@ -305,6 +412,16 @@ export default function SharedSnippet() {
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <label className="flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+            <input
+              type="checkbox"
+              checked={bucketMode}
+              onChange={(event) => toggleBucketMode(event.target.checked)}
+              className="accent-foreground"
+            />
+            <span className="hidden sm:inline">Bucket format</span>
+            <span className="sm:hidden">Buckets</span>
+          </label>
           <div className="relative shrink-0">
             <select
               value={editorThemeId}
@@ -334,7 +451,7 @@ export default function SharedSnippet() {
           </button>
           <button
             onClick={handleCopyCode}
-            disabled={!code}
+            disabled={bucketMode ? !buckets.some((bucket) => bucket.code) : !code}
             className={cn(
               "flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
               copiedCode
@@ -362,6 +479,34 @@ export default function SharedSnippet() {
           </div>
         ) : (
           <>
+            {bucketMode ? (
+              <div className="h-full overflow-auto p-3 sm:p-5">
+                <div className="mx-auto max-w-screen-2xl flex flex-wrap items-start gap-3">
+                  {buckets.map((bucket, index) => (
+                    <BucketEditor
+                      key={bucket.id}
+                      bucket={bucket}
+                      index={index}
+                      canRemove={buckets.length > 1}
+                      extensions={extensions}
+                      copied={copiedBucketId === bucket.id}
+                      onChange={handleBucketChange}
+                      onCopy={handleCopyBucket}
+                      onRemove={removeBucket}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addBucket}
+                    aria-label="Add bucket"
+                    className="w-full sm:w-72 min-h-24 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 hover:bg-accent/40 transition-colors flex flex-col items-center justify-center gap-1"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="text-xs">Add bucket</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             <CodeMirror
               value={code}
               onChange={handleChange}
@@ -379,6 +524,7 @@ export default function SharedSnippet() {
                 });
               }}
             />
+            )}
             <button
               type="button"
               onClick={handleScrollToTop}
@@ -396,6 +542,54 @@ export default function SharedSnippet() {
         )}
       </div>
     </div>
+  );
+}
+
+function BucketEditor({ bucket, index, canRemove, extensions, copied, onChange, onCopy, onRemove }) {
+  return (
+    <section className="w-full lg:w-[calc(50%-0.75rem)] min-w-0 rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background/60">
+        <input
+          type="text"
+          value={bucket.title}
+          onChange={(event) => onChange(bucket.id, "title", event.target.value)}
+          aria-label={`Bucket ${index + 1} title`}
+          placeholder={`Bucket ${index + 1}`}
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium focus:outline-none"
+        />
+        <span className="text-[11px] text-muted-foreground shrink-0">#{index + 1}</span>
+        <button
+          type="button"
+          onClick={() => onCopy(bucket)}
+          disabled={!bucket.code}
+          aria-label={`Copy ${bucket.title || `bucket ${index + 1}`}`}
+          className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+        </button>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={() => onRemove(bucket.id)}
+            aria-label={`Remove ${bucket.title || `bucket ${index + 1}`}`}
+            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-accent transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <CodeMirror
+        value={bucket.code}
+        onChange={(value) => onChange(bucket.id, "code", value)}
+        theme="none"
+        extensions={extensions}
+        placeholder="Function or code block..."
+        basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+        minHeight="220px"
+        className="[&_.cm-editor]:min-h-[220px]"
+      />
+    </section>
   );
 }
 

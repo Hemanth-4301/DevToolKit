@@ -5,11 +5,8 @@ import {
   Upload,
   Trash2,
   History,
-  ChevronDown,
-  ChevronUp,
   Check,
   ClipboardPaste,
-  RotateCcw,
   FileText,
   Maximize2,
   Replace,
@@ -20,6 +17,7 @@ import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
+import HistoryModal from "../components/HistoryModal";
 import { useUndoHistory } from "../hooks/use-undo-history";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
@@ -1065,12 +1063,22 @@ export default function SqlFormatter() {
 
   return (
     <div className="tool-page">
-      <div className="tool-page-header">
-        <h1 className="tool-page-title">SQL Formatter</h1>
-        <p className="tool-page-subtitle">
+      <div className="tool-page-header relative pr-28 sm:pr-36">
+        <div className="min-w-0">
+          <h1 className="tool-page-title">SQL Formatter</h1>
+          <p className="tool-page-subtitle">
           Beautify and format SQL queries with syntax highlighting for all major
           dialects.
-        </p>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowHistory(true)}
+          className="absolute right-0 top-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+        >
+          <History className="h-3.5 w-3.5" />
+          History ({history.length})
+        </button>
       </div>
 
       <div className="tool-toolbar">
@@ -1348,63 +1356,21 @@ export default function SqlFormatter() {
         }
       />
 
-      <div className="mt-4">
-        <button
-          onClick={() => setShowHistory((h) => !h)}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <History className="h-4 w-4" />
-          History ({history.length})
-          {showHistory ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )}
-        </button>
-        {showHistory && (
-          <div className="mt-3 rounded-lg border border-border bg-card p-4">
-            {history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No history yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {history.map((entry, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-md hover:bg-accent/50 group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(entry.timestamp).toLocaleString()} —{" "}
-                      </span>
-                      <span className="text-xs font-mono truncate">
-                        {entry.preview}…
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setInput(entry.input);
-                        setOutput(entry.output);
-                      }}
-                      className="text-xs px-2 py-1 rounded border border-border hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => {
-                    localStorage.removeItem(HISTORY_KEY);
-                    setHistory([]);
-                  }}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors mt-1"
-                >
-                  Clear History
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {showHistory && (
+        <HistoryModal
+          title="SQL History"
+          history={history}
+          onClose={() => setShowHistory(false)}
+          onRestore={(entry) => {
+            setInput(entry.input);
+            setOutput(entry.output);
+          }}
+          onClear={() => {
+            localStorage.removeItem(HISTORY_KEY);
+            setHistory([]);
+          }}
+        />
+      )}
 
       {showFullscreen && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col p-4">
