@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown, Plus, Trash2, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -130,6 +130,12 @@ function combinedBucketCode(buckets) {
   return buckets.map((bucket) => bucket.code).filter(Boolean).join("\n\n");
 }
 
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 // How long to wait after the user stops typing before autosaving. Scaled
 // up for large payloads so a multi-MB snippet isn't re-uploaded on every
 // short pause while typing — the editor itself never locks either way.
@@ -172,6 +178,10 @@ export default function SharedSnippet() {
   const [saveState, setSaveState] = useState("idle"); // idle | pending | saving | saved | error
   const [bucketMode, setBucketMode] = useState(false);
   const [buckets, setBuckets] = useState(() => [createBucket()]);
+  const [bucketAccordionCommand, setBucketAccordionCommand] = useState({
+    expanded: true,
+    token: 0,
+  });
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedBucketId, setCopiedBucketId] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -420,6 +430,14 @@ export default function SharedSnippet() {
             </span>
           )}
           <SaveStatus state={saveState} />
+          <span className={cn(
+            "text-[11px] sm:text-xs shrink-0",
+            persistedContent.length > MAX_CODE_LENGTH
+              ? "text-red-400"
+              : "text-muted-foreground",
+          )}>
+            {formatBytes(persistedContent.length)} / {formatBytes(MAX_CODE_LENGTH)}
+          </span>
           {remoteUpdateAvailable && (
             <span className="flex items-center gap-1 text-xs text-blue-400">
               <ArrowUp className="h-3 w-3 rotate-180" /> Updated
@@ -427,6 +445,26 @@ export default function SharedSnippet() {
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {bucketMode && (
+            <div className="flex items-center gap-0.5 mr-1">
+              <button
+                type="button"
+                title={bucketAccordionCommand.expanded ? "Collapse all buckets" : "Expand all buckets"}
+                aria-label={bucketAccordionCommand.expanded ? "Collapse all buckets" : "Expand all buckets"}
+                onClick={() => setBucketAccordionCommand((current) => ({
+                  expanded: !current.expanded,
+                  token: current.token + 1,
+                }))}
+                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                {bucketAccordionCommand.expanded ? (
+                  <ChevronsUpDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronsDownUp className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          )}
           <label className="flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
             <input
               type="checkbox"
@@ -496,7 +534,8 @@ export default function SharedSnippet() {
           <>
             {bucketMode ? (
               <div className="h-full overflow-auto p-3 sm:p-5">
-                <div className="mx-auto max-w-screen-2xl flex flex-wrap items-start gap-3">
+                <div className="mx-auto max-w-screen-2xl">
+                  <div className="flex flex-wrap items-start gap-3">
                   {buckets.map((bucket, index) => (
                     <BucketEditor
                       key={bucket.id}
@@ -505,6 +544,7 @@ export default function SharedSnippet() {
                       canRemove={buckets.length > 1}
                       extensions={extensions}
                       copied={copiedBucketId === bucket.id}
+                      accordionCommand={bucketAccordionCommand}
                       onChange={handleBucketChange}
                       onCopy={handleCopyBucket}
                       onRemove={removeBucket}
@@ -519,6 +559,7 @@ export default function SharedSnippet() {
                     <Plus className="h-5 w-5" />
                     <span className="text-xs">Add bucket</span>
                   </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -560,8 +601,12 @@ export default function SharedSnippet() {
   );
 }
 
-function BucketEditor({ bucket, index, canRemove, extensions, copied, onChange, onCopy, onRemove }) {
+function BucketEditor({ bucket, index, canRemove, extensions, copied, accordionCommand, onChange, onCopy, onRemove }) {
   const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    setExpanded(accordionCommand.expanded);
+  }, [accordionCommand]);
 
   return (
     <section className="w-full lg:w-[calc(50%-0.75rem)] min-w-0 rounded-xl border border-border bg-card overflow-hidden shadow-sm">
