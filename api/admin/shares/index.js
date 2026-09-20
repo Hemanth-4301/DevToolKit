@@ -49,8 +49,8 @@ export default async function handler(req, res) {
               id: "$shareId",
               createdAt: 1,
               updatedAt: 1,
-              size: { $strLenCP: "$code" },
-              preview: { $substrCP: ["$code", 0, 200] },
+              size: { $strLenCP: { $ifNull: ["$code", ""] } },
+              preview: { $substrCP: [{ $ifNull: ["$code", ""] }, 0, 200] },
             },
           },
           { $sort: { createdAt: -1 } },
@@ -62,8 +62,8 @@ export default async function handler(req, res) {
             $group: {
               _id: null,
               totalLinks: { $sum: 1 },
-              avgSize: { $avg: { $strLenCP: "$code" } },
-              maxSize: { $max: { $strLenCP: "$code" } },
+              avgSize: { $avg: { $strLenCP: { $ifNull: ["$code", ""] } } },
+              maxSize: { $max: { $strLenCP: { $ifNull: ["$code", ""] } } },
             },
           },
         ])
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
         .aggregate([
           {
             $bucket: {
-              groupBy: { $strLenCP: "$code" },
+              groupBy: { $strLenCP: { $ifNull: ["$code", ""] } },
               boundaries: SIZE_BUCKETS.slice(0, -1),
               default: SIZE_BUCKETS[SIZE_BUCKETS.length - 2],
               output: { count: { $sum: 1 } },

@@ -29,6 +29,18 @@ export default async function handler(req, res) {
       if (!doc) {
         return res.status(404).json({ error: "Nothing has been shared at this link yet." });
       }
+      if (doc.encoding === "gzip-base64" && doc.chunkCount) {
+        const chunks = Array.from({ length: doc.chunkCount }, (_, index) => doc.chunkData?.[index]);
+        if (chunks.some((chunk) => typeof chunk !== "string")) {
+          return res.status(409).json({ error: "Share is still being saved. Please retry." });
+        }
+        return res.status(200).json({
+          id: doc.shareId,
+          encoding: doc.encoding,
+          data: chunks.join(""),
+          createdAt: doc.createdAt,
+        });
+      }
       return res.status(200).json({
         id: doc.shareId,
         code: doc.code,

@@ -1,5 +1,5 @@
 import { getSharesCollection } from "../_lib/mongodb.js";
-import { validateCreatePayload } from "../_lib/validate.js";
+import { validateCreatePayload, validateChunkPayload } from "../_lib/validate.js";
 import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 
 export default async function handler(req, res) {
@@ -12,7 +12,9 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
-  const validated = validateCreatePayload(req.body);
+  const validated = req.body?.encoding === "gzip-base64"
+    ? validateChunkPayload(req.body)
+    : validateCreatePayload(req.body);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
   }
@@ -25,12 +27,25 @@ export default async function handler(req, res) {
     // updates the existing document instead of failing as a duplicate.
     // `createdAt` is only set on first insert ($setOnInsert), preserved on
     // every subsequent edit.
+    const update = validated.encoding === "gzip-base64"
+      ? {
+          $set: {
+            [`chunkData.${validated.chunkIndex}`]: validated.data,
+            chunkCount: validated.totalChunks,
+            encoding: validated.encoding,
+            transferId: validated.transferId,
+            updatedAt: now,
+          },
+          $setOnInsert: { shareId: validated.slug, createdAt: now },
+        }
+      : {
+          $set: { code: validated.code, updatedAt: now },
+          $unset: { chunkData: "", chunkCount: "", encoding: "", transferId: "" },
+          $setOnInsert: { shareId: validated.slug, createdAt: now },
+        };
     const result = await collection.findOneAndUpdate(
       { shareId: validated.slug },
-      {
-        $set: { code: validated.code, updatedAt: now },
-        $setOnInsert: { shareId: validated.slug, createdAt: now },
-      },
+      update,
       { upsert: true, returnDocument: "after" },
     );
 
