@@ -37,6 +37,14 @@ async function decompressText(value) {
   return new TextDecoder().decode(await new Response(stream).arrayBuffer());
 }
 
+// Decompresses gzip bytes straight from an ArrayBuffer — used for the raw
+// binary response path, skipping the atob()/charCodeAt() byte loop that
+// decompressText's base64 path requires.
+async function decompressBytes(buffer) {
+  const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+}
+
 async function parseJsonSafe(res) {
   try {
     return await res.json();
@@ -98,11 +106,36 @@ export async function createShare({ code, slug }) {
 }
 
 export async function getShare(id) {
-  const result = await request(`${API_BASE}/${encodeURIComponent(id)}`);
-  if (result?.encoding === "gzip-base64") {
-    return { ...result, code: await decompressText(result.data) };
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
+  } catch {
+    throw new Error("Network error — check your connection and try again.");
   }
-  return result;
+
+  if (!res.ok) {
+    const body = await parseJsonSafe(res);
+    throw new Error(body?.error || `Request failed (${res.status}).`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+
+  // Large/chunked shares come back as raw gzip bytes (see api/share/[id].js)
+  // rather than JSON — cheaper to transfer and to decode than base64-in-JSON.
+  if (contentType.includes("application/octet-stream")) {
+    const buffer = await res.arrayBuffer();
+    return {
+      id: res.headers.get("x-share-id"),
+      code: await decompressBytes(buffer),
+      createdAt: res.headers.get("x-share-created-at"),
+      updatedAt: res.headers.get("x-share-updated-at"),
+    };
+  }
+
+  if (!contentType.includes("application/json")) {
+    throw new Error("Unexpected response from the server — the API may not be running.");
+  }
+  return parseJsonSafe(res);
 }
 
 // Cheap poll — fetches only the timestamp, not the (possibly multi-MB)

@@ -51,13 +51,19 @@ export default async function handler(req, res) {
         if (chunks.some((chunk) => typeof chunk !== "string")) {
           return res.status(409).json({ error: "Share is still being saved. Please retry." });
         }
-        return res.status(200).json({
-          id: doc.shareId,
-          encoding: doc.encoding,
-          data: chunks.join(""),
-          createdAt: doc.createdAt,
-          updatedAt: doc.updatedAt || doc.createdAt,
-        });
+        // Served as raw gzip bytes rather than JSON-wrapped base64 text —
+        // base64 inflates the payload ~33% and forces the client through a
+        // slow atob()+charCodeAt() byte loop just to get back to bytes it
+        // already had server-side. Metadata rides along as response
+        // headers instead of a JSON envelope, since the body is now
+        // opaque binary.
+        const buffer = Buffer.from(chunks.join(""), "base64");
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("X-Share-Encoding", "gzip");
+        res.setHeader("X-Share-Id", doc.shareId);
+        res.setHeader("X-Share-Created-At", doc.createdAt.toISOString());
+        res.setHeader("X-Share-Updated-At", (doc.updatedAt || doc.createdAt).toISOString());
+        return res.status(200).send(buffer);
       }
       return res.status(200).json({
         id: doc.shareId,

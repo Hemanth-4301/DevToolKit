@@ -1393,7 +1393,8 @@ html.dev-mode .admin-login-card::after {
   background: hsl(var(--card));
 }
 
-.admin-login-shake {
+.admin-login-shake,
+.animate-shake {
   animation: admin-login-shake-kf 0.4s ease-in-out;
 }
 

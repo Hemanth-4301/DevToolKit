@@ -699,7 +699,16 @@ function BucketEditor({ bucket, index, canRemove, extensions, copied, accordionC
           </button>
         )}
       </div>
-      {expanded && (
+      {/*
+        Kept mounted and hidden via CSS instead of conditionally rendered.
+        For a multi-MB bucket, unmount+remount on every collapse/expand
+        means CodeMirror re-parses the whole document and rebuilds its
+        syntax tree from scratch each time — synchronous work large enough
+        to make the toggle button feel unresponsive. Hiding with `hidden`
+        avoids that entirely; the editor instance and its parsed state
+        just stay alive underneath.
+      */}
+      <div className={cn(expanded ? "block" : "hidden")}>
         <CodeMirror
           value={bucket.code}
           onChange={(value) => onChange(bucket.id, "code", value)}
@@ -710,7 +719,7 @@ function BucketEditor({ bucket, index, canRemove, extensions, copied, accordionC
           minHeight="220px"
           className="[&_.cm-editor]:min-h-[220px]"
         />
-      )}
+      </div>
     </section>
   );
 }
