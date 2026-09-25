@@ -71,6 +71,8 @@ function sign(payloadB64) {
   return crypto.createHmac("sha256", getSecret()).update(payloadB64).digest("base64url");
 }
 
+// Callers (signSession during login) run inside a try/catch that turns
+// this into a clean 500 JSON error, so it's fine for this one to throw.
 export function signSession(payload) {
   const payloadB64 = base64url(JSON.stringify(payload));
   const signature = sign(payloadB64);
@@ -78,12 +80,26 @@ export function signSession(payload) {
 }
 
 // Verifies signature and expiry; returns the parsed payload or null.
+//
+// Unlike signSession, this runs on EVERY request that carries a session
+// cookie — including via requireAdmin(), which every protected route
+// calls before its own try/catch even starts. A missing
+// ADMIN_SESSION_SECRET must not throw here, or any request with so much
+// as a stale/garbage cookie would crash the function with a raw 500
+// instead of the app's normal JSON error envelope. Treat "can't verify"
+// the same as "invalid token": return null, which requireAdmin already
+// turns into a proper 401.
 export function verifySessionToken(token) {
   if (typeof token !== "string" || !token.includes(".")) return null;
   const [payloadB64, signature] = token.split(".");
   if (!payloadB64 || !signature) return null;
 
-  const expected = sign(payloadB64);
+  let expected;
+  try {
+    expected = sign(payloadB64);
+  } catch {
+    return null;
+  }
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
