@@ -2,8 +2,8 @@ import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 import { requireAdminOrFlag } from "../_lib/featureFlags.js";
 import { withConnection, friendlyConnectionError } from "../_lib/migration/mssqlClient.js";
 import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
-import { buildTableScript } from "../_lib/migration/buildInsert.js";
 import { resolveTables } from "../_lib/migration/resolveTables.js";
+import { executeTableStatements } from "../_lib/migration/executeTable.js";
 
 const MAX_QUERIES = 50;
 const MAX_TOTAL_QUERY_LENGTH = 200_000;
@@ -25,16 +25,23 @@ function validateCreds(creds, label) {
 }
 
 function validateBody(body) {
-  const { source, target, queries, includeDelete, includeIdentityInsert } = body || {};
+  const { source, target, queries, includeDelete, includeIdentityInsert, confirm } = body || {};
 
   const sourceValidated = validateCreds(source, "Source database");
   if (sourceValidated.error) return { error: sourceValidated.error };
 
-  let targetCreds = null;
-  if (target) {
-    const targetValidated = validateCreds(target, "Target database");
-    if (targetValidated.error) return { error: targetValidated.error };
-    targetCreds = targetValidated.creds;
+  // Executing requires an explicit target — running "into itself" isn't
+  // a real migration and DELETE+INSERT-ing the source from the source's
+  // own just-read rows is a foot-gun this endpoint shouldn't allow.
+  const targetValidated = validateCreds(target, "Target database");
+  if (targetValidated.error) return { error: targetValidated.error };
+
+  // A second, explicit confirmation flag required in the body (on top of
+  // whatever the UI's own confirm dialog does) — belt-and-suspenders
+  // against this endpoint ever being called by accident or by a stray
+  // retry that doesn't carry real user intent.
+  if (confirm !== true) {
+    return { error: "Execution must be explicitly confirmed." };
   }
 
   if (!Array.isArray(queries) || queries.length === 0) {
@@ -53,7 +60,7 @@ function validateBody(body) {
 
   return {
     source: sourceValidated.creds,
-    target: targetCreds,
+    target: targetValidated.creds,
     queries,
     includeDelete: includeDelete !== false,
     includeIdentityInsert: includeIdentityInsert !== false,
@@ -66,7 +73,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  if (isRateLimited(`migration-generate:${clientKeyFor(req)}`, 10)) {
+  // Tighter than generate/test-connection — this endpoint writes to a
+  // real database, so it gets the same ceiling as Code Share's save
+  // route rather than a read-like allowance.
+  if (isRateLimited(`migration-execute:${clientKeyFor(req)}`, 10)) {
     return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
@@ -88,42 +98,47 @@ export default async function handler(req, res) {
   }
 
   try {
-    const tables = await withConnection(validated.source, async (sourcePool) => {
-      if (validated.target) {
-        return withConnection(validated.target, (targetPool) =>
-          resolveTables(sourcePool, targetPool, parsedQueries),
-        );
-      }
-      return resolveTables(sourcePool, null, parsedQueries);
-    });
+    const results = await withConnection(validated.source, (sourcePool) =>
+      withConnection(validated.target, async (targetPool) => {
+        const tables = await resolveTables(sourcePool, targetPool, parsedQueries);
 
-    const sections = tables.map((t) =>
-      buildTableScript({
-        ...t,
-        includeDelete: validated.includeDelete,
-        includeIdentityInsert: validated.includeIdentityInsert,
+        // Tables run sequentially, each in its own transaction (see
+        // executeTableStatements) — a failure on one table stops the
+        // run and leaves later tables untouched, while every table that
+        // already committed stays committed. The response reports
+        // exactly how far it got so the admin knows what to re-run.
+        const outcomes = [];
+        for (const t of tables) {
+          try {
+            const outcome = await executeTableStatements(targetPool, {
+              ...t,
+              includeDelete: validated.includeDelete,
+              includeIdentityInsert: validated.includeIdentityInsert,
+            });
+            outcomes.push(outcome);
+          } catch (err) {
+            outcomes.push({
+              schema: t.schema,
+              table: t.table,
+              ok: false,
+              error: err.tableError?.message || err.message,
+            });
+            // Stop at the first failure — later tables in the list are
+            // simply never attempted, not run-and-ignored.
+            return outcomes;
+          }
+        }
+        return outcomes;
       }),
     );
 
-    const header = [
-      "-- ============================================================",
-      "-- Generated by DevToolKit Migration Generator",
-      "-- Each table below runs inside its own transaction: if any",
-      "-- statement for that table fails, its changes are rolled back",
-      "-- automatically and the error is re-thrown (script execution",
-      "-- stops there). Tables already committed before the failure",
-      "-- are NOT affected — review the failed table, fix the issue,",
-      "-- and re-run just that section if needed.",
-      "-- ============================================================",
-      "",
-    ].join("\n");
-
-    return res.status(200).json({ script: header + sections.join("\n\n") });
+    const allOk = results.every((r) => r.ok);
+    return res.status(allOk ? 200 : 207).json({ results });
   } catch (err) {
     if (err.userFacing) {
       return res.status(400).json({ error: err.message });
     }
-    console.error("Migration generate failed:", err.message);
+    console.error("Migration execute failed:", err.message);
     return res.status(400).json({ error: friendlyConnectionError(err) });
   }
 }

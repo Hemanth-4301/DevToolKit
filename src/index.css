@@ -1406,36 +1406,65 @@ html.dev-mode .admin-login-card::after {
   80% { transform: translateX(6px); }
 }
 
-.migration-loader-glow {
+/* Liquid loader — a circular ring that slowly rotates, with a "liquid"
+   fill (two offset sine-wave layers, filled with the accent color) that
+   rises and falls inside it while scrolling sideways, like liquid
+   sloshing in a glass. Pure CSS: the waves are wide repeating
+   radial-gradient strips clipped to a circle and animated with
+   background-position + a height transform on the fill container. */
+.migration-liquid-loader {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  border: 2px solid hsl(var(--border));
+  overflow: hidden;
+  animation: migration-liquid-spin-kf 6s linear infinite;
+  background: hsl(var(--background));
+}
+
+.migration-liquid-fill {
   position: absolute;
-  inset: -40%;
-  background: radial-gradient(circle, hsl(var(--primary) / 0.18) 0%, transparent 65%);
-  animation: migration-loader-glow-kf 2.4s ease-in-out infinite;
-  pointer-events: none;
+  left: -25%;
+  right: -25%;
+  bottom: 0;
+  height: 55%;
+  animation: migration-liquid-level-kf 3.2s ease-in-out infinite;
 }
 
-@keyframes migration-loader-glow-kf {
-  0%, 100% { opacity: 0.5; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.1); }
+.migration-liquid-fill::before,
+.migration-liquid-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
 }
 
-.migration-loader-spark {
-  animation: migration-loader-spark-kf 1.6s ease-in-out infinite;
+.migration-liquid-fill::before {
+  background-image: radial-gradient(ellipse 50% 60% at 50% 0%, transparent 60%, hsl(var(--primary) / 0.9) 61%);
+  animation: migration-liquid-wave-kf 2.6s linear infinite;
 }
 
-@keyframes migration-loader-spark-kf {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(15deg) scale(1.15); }
+.migration-liquid-fill::after {
+  background-image: radial-gradient(ellipse 50% 60% at 50% 0%, transparent 60%, hsl(var(--primary) / 0.6) 61%);
+  animation: migration-liquid-wave-kf 4s linear infinite reverse;
+  opacity: 0.8;
 }
 
-.migration-loader-bar {
-  width: 40%;
-  animation: migration-loader-bar-kf 1.3s ease-in-out infinite;
+@keyframes migration-liquid-spin-kf {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-@keyframes migration-loader-bar-kf {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
+@keyframes migration-liquid-level-kf {
+  0%, 100% { height: 40%; }
+  50% { height: 62%; }
+}
+
+@keyframes migration-liquid-wave-kf {
+  from { background-position-x: 0; }
+  to { background-position-x: -100%; }
 }
 
 .admin-login-icon {

@@ -9,14 +9,15 @@ import {
   PlugZap,
   ArrowRight,
   Database,
-  Sparkles,
+  Zap,
+  XCircle,
 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { syntaxHighlighting } from "@codemirror/language";
 import { cn } from "../lib/utils";
 import { addToast } from "./Toast";
-import { testMigrationConnection, generateMigrationScript } from "../lib/migrationApi";
+import { testMigrationConnection, generateMigrationScript, executeMigration } from "../lib/migrationApi";
 import { splitQueries } from "../lib/migrationQuerySplit";
 import { languageExtensionFor } from "../lib/detectLanguage";
 import { cmTheme, lightHighlight, darkHighlight } from "../lib/codeMirrorTheme";
@@ -97,15 +98,30 @@ export default function MigrationGenerator() {
   const [generateError, setGenerateError] = useState(null);
   const [script, setScript] = useState("");
   const [copied, setCopied] = useState(false);
+  // Snapshot of exactly what was generated — execution re-runs against
+  // this rather than re-reading live form state, so what gets executed
+  // always matches what the admin reviewed as the generated script.
+  const [generatedQueries, setGeneratedQueries] = useState(null);
+
+  const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [executeStep, setExecuteStep] = useState(0);
+  const [executeError, setExecuteError] = useState(null);
+  const [executeResults, setExecuteResults] = useState(null);
 
   const updateCred = (field, value) => {
     setCreds((prev) => ({ ...prev, [field]: value }));
     setTestStatus("idle");
+    // Changing where Execute would read from/write to after a script was
+    // already reviewed is exactly the kind of drift that snapshot exists
+    // to prevent — require a fresh Generate before allowing execution.
+    setGeneratedQueries(null);
   };
 
   const updateTargetCred = (field, value) => {
     setTargetCreds((prev) => ({ ...prev, [field]: value }));
     setTargetTestStatus("idle");
+    setGeneratedQueries(null);
   };
 
   const handleTestConnection = async () => {
@@ -149,6 +165,8 @@ export default function MigrationGenerator() {
     setGenerating(true);
     setGenerateError(null);
     setGenerateStep(0);
+    setExecuteResults(null);
+    setExecuteError(null);
 
     // Purely cosmetic step progression — the request itself is a single
     // call, but stepping through these while it's in flight gives the
@@ -167,6 +185,9 @@ export default function MigrationGenerator() {
         includeIdentityInsert,
       });
       setScript(result.script || "");
+      // Snapshot exactly what was just generated — Execute on Target
+      // replays this, not whatever the form happens to contain later.
+      setGeneratedQueries(queries);
 
       // Credentials are intentionally left as-is here — they persist in
       // this form until the page is refreshed, even if "Save credentials"
@@ -209,6 +230,39 @@ export default function MigrationGenerator() {
     a.download = "migration.sql";
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExecute = async () => {
+    setShowExecuteConfirm(false);
+    setExecuting(true);
+    setExecuteError(null);
+    setExecuteResults(null);
+    setExecuteStep(0);
+
+    const stepTimer = setInterval(() => {
+      setExecuteStep((s) => Math.min(s + 1, GENERATE_STEPS.length - 1));
+    }, 900);
+
+    try {
+      const result = await executeMigration({
+        source: creds,
+        target: targetCreds,
+        queries: generatedQueries,
+        includeDelete,
+        includeIdentityInsert,
+      });
+      setExecuteResults(result.results || []);
+      const allOk = (result.results || []).every((r) => r.ok);
+      addToast({
+        title: allOk ? "Migration executed successfully!" : "Migration stopped partway — see results below.",
+        type: allOk ? "success" : "error",
+      });
+    } catch (err) {
+      setExecuteError(err.message || "Failed to execute migration.");
+    } finally {
+      clearInterval(stepTimer);
+      setExecuting(false);
+    }
   };
 
   return (
@@ -370,7 +424,10 @@ export default function MigrationGenerator() {
               <input
                 type="checkbox"
                 checked={includeDelete}
-                onChange={(e) => setIncludeDelete(e.target.checked)}
+                onChange={(e) => {
+                  setIncludeDelete(e.target.checked);
+                  setGeneratedQueries(null);
+                }}
                 className="accent-foreground"
               />
               Include DELETE statements
@@ -379,7 +436,10 @@ export default function MigrationGenerator() {
               <input
                 type="checkbox"
                 checked={includeIdentityInsert}
-                onChange={(e) => setIncludeIdentityInsert(e.target.checked)}
+                onChange={(e) => {
+                  setIncludeIdentityInsert(e.target.checked);
+                  setGeneratedQueries(null);
+                }}
                 className="accent-foreground"
               />
               Include SET IDENTITY_INSERT ON/OFF
@@ -409,7 +469,13 @@ export default function MigrationGenerator() {
         <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]">
           <CodeMirror
             value={queriesText}
-            onChange={setQueriesText}
+            onChange={(value) => {
+              setQueriesText(value);
+              // Editing after a generate invalidates the snapshot Execute
+              // on Target would otherwise replay — force a fresh Generate
+              // before allowing execution again.
+              setGeneratedQueries(null);
+            }}
             theme="none"
             extensions={sqlExtensions}
             placeholder={`select * from rp.tblReportConfig where ReportConfigName in ('A','B')\nselect * from dt.tblDispatcher where DispatcherTaskName in ('C','D')`}
@@ -449,9 +515,46 @@ export default function MigrationGenerator() {
               >
                 <Download className="h-3 w-3" /> .sql
               </button>
+              {crossDbMode && (
+                <button
+                  onClick={() => setShowExecuteConfirm(true)}
+                  disabled={executing || !generatedQueries}
+                  title={!generatedQueries ? "Re-generate first — the query box or options changed since this script was built." : undefined}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Zap className="h-3 w-3" /> Execute on Target
+                </button>
+              )}
             </div>
           </div>
-          <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:max-h-[500px] [&_.cm-scroller]:overflow-auto">
+          {!generatedQueries && (
+            <div className="flex items-center gap-1.5 mb-2 text-xs text-amber-500">
+              <AlertCircle className="h-3.5 w-3.5" /> Queries or options changed — re-generate to refresh this script.
+            </div>
+          )}
+          <div
+            className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:max-h-[500px] [&_.cm-scroller]:overflow-auto"
+            onKeyDown={(e) => {
+              const key = e.key.toLowerCase();
+              if (!(e.ctrlKey || e.metaKey) || (key !== "a" && key !== "x")) return;
+              e.preventDefault();
+              const editorEl = e.currentTarget.querySelector(".cm-content");
+              if (editorEl) {
+                const range = document.createRange();
+                range.selectNodeContents(editorEl);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+              if (key === "x") {
+                // Script is read-only, so "cut" copies rather than
+                // deleting — matches how a real cut on non-editable
+                // content behaves in most editors/browsers.
+                navigator.clipboard.writeText(script);
+                addToast({ title: "Script copied!", type: "success" });
+              }
+            }}
+          >
             <CodeMirror
               value={script}
               theme="none"
@@ -462,25 +565,128 @@ export default function MigrationGenerator() {
           </div>
         </div>
       )}
+
+      {executing && <GeneratingOverlay step={executeStep} title="Executing on target database" />}
+
+      {executeError && !executing && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+          <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>{executeError}</span>
+        </div>
+      )}
+
+      {executeResults && !executing && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h3 className="text-sm font-semibold mb-3">Execution Results</h3>
+          <div className="flex flex-col gap-2">
+            {executeResults.map((r, i) => (
+              <div
+                key={`${r.schema}.${r.table}-${i}`}
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border p-3 text-xs",
+                  r.ok
+                    ? "border-green-500/20 bg-green-500/10 text-green-500"
+                    : "border-red-500/20 bg-red-500/10 text-red-400",
+                )}
+              >
+                {r.ok ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                )}
+                <div>
+                  <div className="font-medium">
+                    {r.schema}.{r.table}
+                  </div>
+                  {r.ok ? (
+                    <div>{r.rowsAffected} row(s) migrated.</div>
+                  ) : (
+                    <div>Rolled back — {r.error}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {executeResults.some((r) => !r.ok) && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Execution stopped at the first failure. Tables listed above that succeeded are
+                already committed; tables not listed were never attempted.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showExecuteConfirm && (
+        <ExecuteConfirmDialog
+          tableCount={generatedQueries?.length || 0}
+          targetLabel={`${targetCreds.server || "?"} / ${targetCreds.database || "?"}`}
+          onCancel={() => setShowExecuteConfirm(false)}
+          onConfirm={handleExecute}
+        />
+      )}
     </div>
   );
 }
 
-function GeneratingOverlay({ step }) {
+function ExecuteConfirmDialog({ tableCount, targetLabel, onCancel, onConfirm }) {
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm px-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-xl border border-border bg-card shadow-2xl p-5">
+        <div className="flex items-center gap-2 mb-3 text-red-400">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <h3 className="text-sm font-semibold">Execute migration on target?</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          This will run the generated DELETE/INSERT statements for {tableCount}{" "}
+          {tableCount === 1 ? "table" : "tables"} directly against <strong className="text-foreground">{targetLabel}</strong>.
+          Each table runs in its own transaction and rolls back automatically on failure, but this is a real write —
+          review the script above before continuing.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
+          >
+            Yes, execute
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeneratingOverlay({ step, title = "Generating migration script" }) {
   return (
     <div className="relative overflow-hidden rounded-lg border border-border bg-card p-8 flex flex-col items-center justify-center gap-4">
-      <div className="migration-loader-glow" />
-      <div className="relative flex items-center justify-center h-14 w-14 rounded-2xl bg-foreground text-background">
-        <Sparkles className="h-6 w-6 migration-loader-spark" />
+      <div className="migration-liquid-loader">
+        <div className="migration-liquid-fill" />
       </div>
-      <div className="relative flex flex-col items-center gap-1.5">
-        <span className="text-sm font-semibold">Generating migration script</span>
+      <div className="flex flex-col items-center gap-1.5">
+        <span className="text-sm font-semibold">{title}</span>
         <span className="text-xs text-muted-foreground transition-all duration-300">
           {GENERATE_STEPS[step]}
         </span>
-      </div>
-      <div className="relative w-full max-w-xs h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="migration-loader-bar h-full rounded-full bg-foreground" />
       </div>
     </div>
   );

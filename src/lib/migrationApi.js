@@ -44,3 +44,11 @@ export function testMigrationConnection(creds) {
 export function generateMigrationScript({ source, target, queries, includeDelete, includeIdentityInsert }) {
   return postJson("generate", { source, target, queries, includeDelete, includeIdentityInsert });
 }
+
+// Actually runs the DELETE/INSERT statements against `target` — unlike
+// generate/test-connection, this writes to a real database. `confirm:
+// true` must be passed explicitly; the server rejects the call
+// otherwise, on top of whatever confirmation the caller's own UI does.
+export function executeMigration({ source, target, queries, includeDelete, includeIdentityInsert }) {
+  return postJson("execute", { source, target, queries, includeDelete, includeIdentityInsert, confirm: true });
+}
