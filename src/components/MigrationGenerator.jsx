@@ -11,9 +11,11 @@ import {
   Database,
   Zap,
   XCircle,
+  Trash2,
 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
 import { syntaxHighlighting } from "@codemirror/language";
 import { cn } from "../lib/utils";
 import { addToast } from "./Toast";
@@ -70,6 +72,14 @@ export default function MigrationGenerator() {
     if (sqlLanguage) exts.push(sqlLanguage);
     return exts;
   }, [isDark]);
+  // Used for the generated-script viewer instead of CodeMirror's own
+  // `editable={false}` prop — that flag also sets EditorState.readOnly,
+  // which suppresses parts of the default keymap (Mod-a/select-all,
+  // Mod-c/copy) along with editing. changeFilter blocks only actual
+  // content changes, so selection, copy, and Ctrl+A/Ctrl+C/Ctrl+X all
+  // keep working normally; there's just nothing for Ctrl+X to delete.
+  const readOnlyFilter = useMemo(() => EditorState.changeFilter.of(() => false), []);
+  const scriptExtensions = useMemo(() => [...sqlExtensions, readOnlyFilter], [sqlExtensions, readOnlyFilter]);
 
   const stored = useMemo(() => loadStoredCreds(CREDS_STORAGE_KEY), []);
   const [creds, setCreds] = useState(stored || EMPTY_CREDS);
@@ -219,6 +229,13 @@ export default function MigrationGenerator() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     addToast({ title: "Script copied!", type: "success" });
+  };
+
+  const handleClearScript = () => {
+    setScript("");
+    setGeneratedQueries(null);
+    setExecuteResults(null);
+    setExecuteError(null);
   };
 
   const handleDownload = () => {
@@ -525,6 +542,13 @@ export default function MigrationGenerator() {
                   <Zap className="h-3 w-3" /> Execute on Target
                 </button>
               )}
+              <button
+                onClick={handleClearScript}
+                title="Clear generated script"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+              >
+                <Trash2 className="h-3 w-3" /> Clear
+              </button>
             </div>
           </div>
           {!generatedQueries && (
@@ -535,31 +559,22 @@ export default function MigrationGenerator() {
           <div
             className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:max-h-[500px] [&_.cm-scroller]:overflow-auto"
             onKeyDown={(e) => {
+              // Ctrl+A and Ctrl+C are handled natively by CodeMirror's own
+              // keymap (see scriptExtensions — no editable={false}, so
+              // those commands aren't suppressed). Only Ctrl+X needs help:
+              // there's nothing to delete on a read-only doc, so a normal
+              // cut would select-and-do-nothing — copy instead, which is
+              // what "cut" degrades to on non-editable content elsewhere.
               const key = e.key.toLowerCase();
-              if (!(e.ctrlKey || e.metaKey) || (key !== "a" && key !== "x")) return;
-              e.preventDefault();
-              const editorEl = e.currentTarget.querySelector(".cm-content");
-              if (editorEl) {
-                const range = document.createRange();
-                range.selectNodeContents(editorEl);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-              }
-              if (key === "x") {
-                // Script is read-only, so "cut" copies rather than
-                // deleting — matches how a real cut on non-editable
-                // content behaves in most editors/browsers.
-                navigator.clipboard.writeText(script);
-                addToast({ title: "Script copied!", type: "success" });
-              }
+              if (!(e.ctrlKey || e.metaKey) || key !== "x") return;
+              navigator.clipboard.writeText(script);
+              addToast({ title: "Script copied!", type: "success" });
             }}
           >
             <CodeMirror
               value={script}
               theme="none"
-              extensions={sqlExtensions}
-              editable={false}
+              extensions={scriptExtensions}
               basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false }}
             />
           </div>
