@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -11,15 +11,26 @@ import {
   Database,
   Sparkles,
 } from "lucide-react";
+import CodeMirror from "@uiw/react-codemirror";
+import { EditorView } from "@codemirror/view";
+import { syntaxHighlighting } from "@codemirror/language";
 import { cn } from "../lib/utils";
 import { addToast } from "./Toast";
 import { testMigrationConnection, generateMigrationScript } from "../lib/migrationApi";
 import { splitQueries } from "../lib/migrationQuerySplit";
+import { languageExtensionFor } from "../lib/detectLanguage";
+import { cmTheme, lightHighlight, darkHighlight } from "../lib/codeMirrorTheme";
+
+const sqlLanguage = languageExtensionFor("sql");
 
 const CREDS_STORAGE_KEY = "devtoolkit_migration_creds";
 const TARGET_CREDS_STORAGE_KEY = "devtoolkit_migration_target_creds";
 
 const EMPTY_CREDS = { server: "", database: "", username: "", password: "", port: "1433" };
+
+function credsComplete(c) {
+  return !!(c.server?.trim() && c.database?.trim() && c.username?.trim() && c.password);
+}
 
 function loadStoredCreds(key) {
   try {
@@ -41,6 +52,24 @@ const GENERATE_STEPS = [
 ];
 
 export default function MigrationGenerator() {
+  // Both regular dark mode and Dev Mode add the "dark" class to <html>
+  // (see App.jsx) — mirrors SharedSnippet.jsx's approach so the editor
+  // theme reacts to the same toggle everywhere in the app.
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  const sqlExtensions = useMemo(() => {
+    const exts = [cmTheme, syntaxHighlighting(isDark ? darkHighlight : lightHighlight), EditorView.lineWrapping];
+    if (sqlLanguage) exts.push(sqlLanguage);
+    return exts;
+  }, [isDark]);
+
   const stored = useMemo(() => loadStoredCreds(CREDS_STORAGE_KEY), []);
   const [creds, setCreds] = useState(stored || EMPTY_CREDS);
   const [rememberCreds, setRememberCreds] = useState(!!stored);
@@ -107,6 +136,14 @@ export default function MigrationGenerator() {
     const queries = splitQueries(queriesText);
     if (queries.length === 0) {
       setGenerateError("Paste at least one SELECT query.");
+      return;
+    }
+    if (!credsComplete(creds)) {
+      setGenerateError("Fill in all Source Database fields before generating.");
+      return;
+    }
+    if (crossDbMode && !credsComplete(targetCreds)) {
+      setGenerateError("Fill in all Target Database fields, or turn off cross-DB migration.");
       return;
     }
     setGenerating(true);
@@ -326,12 +363,17 @@ export default function MigrationGenerator() {
             {queryCount} {queryCount === 1 ? "query" : "queries"} detected
           </span>
         </div>
-        <textarea
-          value={queriesText}
-          onChange={(e) => setQueriesText(e.target.value)}
-          placeholder={`select * from rp.tblReportConfig where ReportConfigName in ('A','B')\nselect * from dt.tblDispatcher where DispatcherTaskName in ('C','D')`}
-          className="w-full min-h-[180px] p-3 rounded-lg border border-border bg-background font-mono text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring/30 focus:border-ring/50 transition-colors"
-        />
+        <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]">
+          <CodeMirror
+            value={queriesText}
+            onChange={setQueriesText}
+            theme="none"
+            extensions={sqlExtensions}
+            placeholder={`select * from rp.tblReportConfig where ReportConfigName in ('A','B')\nselect * from dt.tblDispatcher where DispatcherTaskName in ('C','D')`}
+            basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
+            minHeight="180px"
+          />
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3">
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -364,7 +406,12 @@ export default function MigrationGenerator() {
         <button
           type="button"
           onClick={handleGenerate}
-          disabled={generating || queryCount === 0}
+          disabled={
+            generating ||
+            queryCount === 0 ||
+            !credsComplete(creds) ||
+            (crossDbMode && !credsComplete(targetCreds))
+          }
           className="mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {generating ? (
@@ -402,9 +449,15 @@ export default function MigrationGenerator() {
               </button>
             </div>
           </div>
-          <pre className="w-full max-h-[500px] overflow-auto p-3 rounded-lg border border-border bg-background font-mono text-xs whitespace-pre">
-            {script}
-          </pre>
+          <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:max-h-[500px] [&_.cm-scroller]:overflow-auto">
+            <CodeMirror
+              value={script}
+              theme="none"
+              extensions={sqlExtensions}
+              editable={false}
+              basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false }}
+            />
+          </div>
         </div>
       )}
     </div>

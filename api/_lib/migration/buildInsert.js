@@ -47,9 +47,16 @@ export function formatValue(value, dataType) {
 
 // Builds one full migration script section for a single table: header
 // comment, DELETE, IDENTITY_INSERT toggle (only if needed), and one
-// INSERT per row. `includeDelete`/`includeIdentityInsert` let the caller
-// omit either section entirely (e.g. an append-only migration with no
-// delete, or a table the user knows has no identity column).
+// INSERT per row — all wrapped in its own transaction with TRY/CATCH, so
+// if any statement fails partway through when the script is actually run
+// (a constraint violation, a duplicate key, a truncated value, a dropped
+// connection), that table's changes are rolled back automatically rather
+// than leaving the target half-migrated (deleted rows with only some of
+// their replacements inserted). Each table is independent: one table's
+// rollback doesn't affect another table's already-committed section.
+// `includeDelete`/`includeIdentityInsert` let the caller omit either
+// section entirely (e.g. an append-only migration with no delete, or a
+// table the user knows has no identity column).
 export function buildTableScript({
   schema,
   table,
@@ -62,6 +69,7 @@ export function buildTableScript({
   const hasIdentity = includeIdentityInsert && columns.some((c) => c.isIdentity);
   const columnList = columns.map((c) => `[${c.name}]`).join(",");
   const qualified = `${schema}.${table}`;
+  const txnName = `Migrate_${schema}_${table}`.replace(/[^A-Za-z0-9_]/g, "_");
 
   const lines = [];
   lines.push("-- --------------------------------------------------------");
@@ -70,29 +78,46 @@ export function buildTableScript({
   lines.push(`-- Rows   : ${rows.length}`);
   lines.push("-- --------------------------------------------------------");
   lines.push("");
+  lines.push("BEGIN TRY");
+  lines.push(`  BEGIN TRANSACTION ${txnName}`);
+  lines.push("");
 
   if (includeDelete) {
-    lines.push(`DELETE FROM ${qualified} WHERE ${whereClause}`);
-    lines.push("GO");
+    lines.push(`  DELETE FROM ${qualified} WHERE ${whereClause}`);
     lines.push("");
   }
 
   if (hasIdentity) {
-    lines.push(`SET IDENTITY_INSERT ${qualified} ON`);
-    lines.push("GO");
+    lines.push(`  SET IDENTITY_INSERT ${qualified} ON`);
     lines.push("");
   }
 
   for (const row of rows) {
     const values = columns.map((c) => formatValue(row[c.name], c.dataType)).join(",");
-    lines.push(`INSERT INTO [${schema}].[${table}](${columnList})VALUES(${values})`);
+    lines.push(`  INSERT INTO [${schema}].[${table}](${columnList})VALUES(${values})`);
   }
   lines.push("");
 
   if (hasIdentity) {
-    lines.push(`SET IDENTITY_INSERT ${qualified} OFF`);
-    lines.push("GO");
+    lines.push(`  SET IDENTITY_INSERT ${qualified} OFF`);
+    lines.push("");
   }
+
+  lines.push(`  COMMIT TRANSACTION ${txnName}`);
+  lines.push(`  PRINT 'OK: ${qualified} — ${rows.length} row(s) migrated.'`);
+  lines.push("END TRY");
+  lines.push("BEGIN CATCH");
+  lines.push(`  IF XACT_STATE() <> 0 ROLLBACK TRANSACTION ${txnName}`);
+  if (hasIdentity) {
+    // Always safe to issue even if IDENTITY_INSERT was already off for
+    // this table/session — SQL Server only errors on turning a second
+    // one ON while another is active, never on OFF.
+    lines.push(`  SET IDENTITY_INSERT ${qualified} OFF`);
+  }
+  lines.push(`  PRINT 'ROLLED BACK: ${qualified} — ' + ERROR_MESSAGE()`);
+  lines.push("  THROW;");
+  lines.push("END CATCH");
+  lines.push("GO");
 
   return lines.join("\n");
 }
