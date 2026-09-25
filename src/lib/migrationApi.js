@@ -41,6 +41,6 @@ export function testMigrationConnection(creds) {
   return postJson("test-connection", creds);
 }
 
-export function generateMigrationScript({ creds, queries }) {
-  return postJson("generate", { ...creds, queries });
+export function generateMigrationScript({ source, target, queries, includeDelete, includeIdentityInsert }) {
+  return postJson("generate", { source, target, queries, includeDelete, includeIdentityInsert });
 }

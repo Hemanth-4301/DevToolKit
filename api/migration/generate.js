@@ -7,19 +7,35 @@ import { buildTableScript } from "../_lib/migration/buildInsert.js";
 const MAX_QUERIES = 50;
 const MAX_TOTAL_QUERY_LENGTH = 200_000;
 
-function validateBody(body) {
-  const { server, database, username, password, port, queries } = body || {};
+function validateCreds(creds, label) {
+  const { server, database, username, password, port } = creds || {};
   if (
     typeof server !== "string" || !server.trim() ||
     typeof database !== "string" || !database.trim() ||
     typeof username !== "string" || !username.trim() ||
     typeof password !== "string" || !password
   ) {
-    return { error: "Server, database, username, and password are all required." };
+    return { error: `${label}: server, database, username, and password are all required.` };
   }
   if (port !== undefined && port !== "" && Number.isNaN(Number(port))) {
-    return { error: "Port must be a number." };
+    return { error: `${label}: port must be a number.` };
   }
+  return { creds: { server: server.trim(), database: database.trim(), username: username.trim(), password, port } };
+}
+
+function validateBody(body) {
+  const { source, target, queries, includeDelete, includeIdentityInsert } = body || {};
+
+  const sourceValidated = validateCreds(source, "Source database");
+  if (sourceValidated.error) return { error: sourceValidated.error };
+
+  let targetCreds = null;
+  if (target) {
+    const targetValidated = validateCreds(target, "Target database");
+    if (targetValidated.error) return { error: targetValidated.error };
+    targetCreds = targetValidated.creds;
+  }
+
   if (!Array.isArray(queries) || queries.length === 0) {
     return { error: "At least one query is required." };
   }
@@ -35,8 +51,11 @@ function validateBody(body) {
   }
 
   return {
-    creds: { server: server.trim(), database: database.trim(), username: username.trim(), password, port },
+    source: sourceValidated.creds,
+    target: targetCreds,
     queries,
+    includeDelete: includeDelete !== false,
+    includeIdentityInsert: includeIdentityInsert !== false,
   };
 }
 
@@ -84,19 +103,61 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sections = await withConnection(validated.creds, async (pool) => {
-      const results = [];
-      for (const { schema, table, whereClause, selectText } of parsedQueries) {
-        const columns = await fetchColumns(pool, schema, table);
-        if (columns.length === 0) {
-          throw Object.assign(new Error(`Table not found: ${schema}.${table}`), { userFacing: true });
+    const sections = await withConnection(validated.source, async (sourcePool) => {
+      // When a target DB is given, open a second connection for the
+      // duration of the whole request and use ITS column/identity
+      // metadata to build each table's script — catches a column that
+      // doesn't exist on the target, or a target table with no identity
+      // column, before the script is ever run there. Falls back to the
+      // source connection's own metadata when no target is set.
+      const runWithTarget = async (targetPool) => {
+        const usingTarget = !!targetPool;
+        const results = [];
+        for (const { schema, table, whereClause, selectText } of parsedQueries) {
+          const sourceColumns = await fetchColumns(sourcePool, schema, table);
+          if (sourceColumns.length === 0) {
+            throw Object.assign(new Error(`Table not found in source: ${schema}.${table}`), { userFacing: true });
+          }
+
+          let columns = sourceColumns;
+          if (usingTarget) {
+            const targetColumns = await fetchColumns(targetPool, schema, table);
+            if (targetColumns.length === 0) {
+              throw Object.assign(new Error(`Table not found in target: ${schema}.${table}`), { userFacing: true });
+            }
+            const targetByName = new Map(targetColumns.map((c) => [c.name.toLowerCase(), c]));
+            const missing = sourceColumns.filter((c) => !targetByName.has(c.name.toLowerCase()));
+            if (missing.length > 0) {
+              throw Object.assign(
+                new Error(`Target table ${schema}.${table} is missing column(s): ${missing.map((c) => c.name).join(", ")}`),
+                { userFacing: true },
+              );
+            }
+            // Use the source's column order (matches the SELECT's row
+            // shape) but the target's data type/identity metadata.
+            columns = sourceColumns.map((c) => targetByName.get(c.name.toLowerCase()));
+          }
+
+          const rowsResult = await sourcePool.request().query(selectText);
+          results.push(
+            buildTableScript({
+              schema,
+              table,
+              whereClause,
+              columns,
+              rows: rowsResult.recordset,
+              includeDelete: validated.includeDelete,
+              includeIdentityInsert: validated.includeIdentityInsert,
+            }),
+          );
         }
-        const rowsResult = await pool.request().query(selectText);
-        results.push(
-          buildTableScript({ schema, table, whereClause, columns, rows: rowsResult.recordset }),
-        );
+        return results;
+      };
+
+      if (validated.target) {
+        return withConnection(validated.target, (targetPool) => runWithTarget(targetPool));
       }
-      return results;
+      return runWithTarget(null);
     });
 
     return res.status(200).json({ script: sections.join("\n\n") });

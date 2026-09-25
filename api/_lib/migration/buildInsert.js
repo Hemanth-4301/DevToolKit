@@ -47,9 +47,19 @@ export function formatValue(value, dataType) {
 
 // Builds one full migration script section for a single table: header
 // comment, DELETE, IDENTITY_INSERT toggle (only if needed), and one
-// INSERT per row.
-export function buildTableScript({ schema, table, whereClause, columns, rows }) {
-  const hasIdentity = columns.some((c) => c.isIdentity);
+// INSERT per row. `includeDelete`/`includeIdentityInsert` let the caller
+// omit either section entirely (e.g. an append-only migration with no
+// delete, or a table the user knows has no identity column).
+export function buildTableScript({
+  schema,
+  table,
+  whereClause,
+  columns,
+  rows,
+  includeDelete = true,
+  includeIdentityInsert = true,
+}) {
+  const hasIdentity = includeIdentityInsert && columns.some((c) => c.isIdentity);
   const columnList = columns.map((c) => `[${c.name}]`).join(",");
   const qualified = `${schema}.${table}`;
 
@@ -60,9 +70,12 @@ export function buildTableScript({ schema, table, whereClause, columns, rows }) 
   lines.push(`-- Rows   : ${rows.length}`);
   lines.push("-- --------------------------------------------------------");
   lines.push("");
-  lines.push(`DELETE FROM ${qualified} WHERE ${whereClause}`);
-  lines.push("GO");
-  lines.push("");
+
+  if (includeDelete) {
+    lines.push(`DELETE FROM ${qualified} WHERE ${whereClause}`);
+    lines.push("GO");
+    lines.push("");
+  }
 
   if (hasIdentity) {
     lines.push(`SET IDENTITY_INSERT ${qualified} ON`);
