@@ -470,6 +470,15 @@ export default function MigrationGenerator() {
                 !credsComplete(creds) ||
                 (crossDbMode && !credsComplete(targetCreds))
               }
+              title={
+                queryCount === 0
+                  ? "Paste at least one SELECT query."
+                  : !credsComplete(creds)
+                  ? "Fill in all Source Database fields."
+                  : crossDbMode && !credsComplete(targetCreds)
+                  ? "Fill in all Target Database fields, or turn off cross-DB migration."
+                  : undefined
+              }
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {generating ? (
@@ -482,6 +491,12 @@ export default function MigrationGenerator() {
             </button>
           </div>
         </div>
+
+        {crossDbMode && !credsComplete(targetCreds) && (
+          <div className="flex items-center gap-1.5 mb-3 text-xs text-amber-500">
+            <AlertCircle className="h-3.5 w-3.5" /> Fill in the Target Database fields above to enable Generate.
+          </div>
+        )}
 
         <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]">
           <CodeMirror
