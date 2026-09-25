@@ -49,3 +49,10 @@ export async function getSharesCollection() {
 
   return collection;
 }
+
+const FEATURE_FLAGS_COLLECTION = "featureFlags";
+
+export async function getFeatureFlagsCollection() {
+  const client = await getClientPromise();
+  return client.db(DB_NAME).collection(FEATURE_FLAGS_COLLECTION);
+}

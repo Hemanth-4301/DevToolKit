@@ -1,5 +1,5 @@
 import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
-import { requireAdmin } from "../_lib/adminAuth.js";
+import { requireAdminOrFlag } from "../_lib/featureFlags.js";
 import { withConnection, friendlyConnectionError, sql } from "../_lib/migration/mssqlClient.js";
 import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
 import { buildTableScript } from "../_lib/migration/buildInsert.js";
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
-  const session = requireAdmin(req, res);
+  const session = await requireAdminOrFlag(req, res, "migrationGenerator");
   if (!session) return;
 
   const validated = validateBody(req.body);

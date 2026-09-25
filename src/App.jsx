@@ -15,6 +15,7 @@ import AdminArea from "./pages/AdminArea";
 import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
 import { useAdminAuth } from "./hooks/use-admin-auth";
+import { useFeatureFlags } from "./hooks/use-feature-flags";
 
 // Only "home" and "code-share" are real URLs — every other tab (json, sql,
 // jwt, admin, ...) is reached purely by clicking the navbar (or, for admin,
@@ -88,6 +89,7 @@ function AppShell() {
     return saved !== null ? JSON.parse(saved) : false;
   });
   const adminAuth = useAdminAuth();
+  const flags = useFeatureFlags();
 
   useEffect(() => {
     localStorage.setItem("devtoolkit_devmode", JSON.stringify(devMode));
@@ -139,7 +141,7 @@ function AppShell() {
             </section>
 
             <section className={activeTab === "sql" ? "block" : "hidden"}>
-              <SqlFormatter adminAuth={adminAuth} />
+              <SqlFormatter migrationEnabled={adminAuth.authenticated || flags.migrationGenerator} />
             </section>
 
             <section className={activeTab === "base64" ? "block" : "hidden"}>
@@ -173,7 +175,7 @@ function AppShell() {
         )}
       </main>
       <ToastContainer />
-      {adminAuth.authenticated && <ChatWidget />}
+      {(adminAuth.authenticated || flags.chatbot) && <ChatWidget />}
     </div>
   );
 }

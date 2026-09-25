@@ -889,7 +889,7 @@ function tokenizeLine(line) {
   return tokens;
 }
 
-export default function SqlFormatter({ adminAuth }) {
+export default function SqlFormatter({ migrationEnabled }) {
   const initialState = getState();
   const [input, setInputRaw] = useState(initialState.input);
   const { record: recordInputUndo, handleKeyDown: handleInputUndoKeyDown } =
@@ -917,8 +917,8 @@ export default function SqlFormatter({ adminAuth }) {
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [subTab, setSubTab] = useState("format"); // "format" | "migration"
   useEffect(() => {
-    if (subTab === "migration" && !adminAuth?.authenticated) setSubTab("format");
-  }, [subTab, adminAuth?.authenticated]);
+    if (subTab === "migration" && !migrationEnabled) setSubTab("format");
+  }, [subTab, migrationEnabled]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -1088,7 +1088,7 @@ export default function SqlFormatter({ adminAuth }) {
         )}
       </div>
 
-      {adminAuth?.authenticated && (
+      {migrationEnabled && (
         <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden w-fit mb-4">
           {[
             { id: "format", label: "Format" },
@@ -1111,7 +1111,7 @@ export default function SqlFormatter({ adminAuth }) {
         </div>
       )}
 
-      {subTab === "migration" && adminAuth?.authenticated ? (
+      {subTab === "migration" && migrationEnabled ? (
         <MigrationGenerator />
       ) : (
       <>

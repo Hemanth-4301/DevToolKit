@@ -1,5 +1,5 @@
 import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
-import { requireAdmin } from "../_lib/adminAuth.js";
+import { requireAdminOrFlag } from "../_lib/featureFlags.js";
 import { withConnection, friendlyConnectionError } from "../_lib/migration/mssqlClient.js";
 
 function validateCreds(body) {
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: "Too many requests — please slow down." });
   }
 
-  const session = requireAdmin(req, res);
+  const session = await requireAdminOrFlag(req, res, "migrationGenerator");
   if (!session) return;
 
   const validated = validateCreds(req.body);

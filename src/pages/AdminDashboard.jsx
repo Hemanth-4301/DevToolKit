@@ -7,6 +7,7 @@ import LinksOverTimeChart from "../components/admin/LinksOverTimeChart";
 import SizeDistributionChart from "../components/admin/SizeDistributionChart";
 import SharesTable from "../components/admin/SharesTable";
 import AdminSettingsPanel from "../components/admin/AdminSettingsPanel";
+import FeatureFlagsPanel from "../components/admin/FeatureFlagsPanel";
 
 function formatSize(bytes) {
   if (!bytes) return "0 B";
@@ -86,10 +87,13 @@ export default function AdminDashboard({ auth }) {
         </header>
 
         {showSettings && (
-          <AdminSettingsPanel
-            onClose={() => setShowSettings(false)}
-            onUpdated={() => auth.refresh()}
-          />
+          <div className="flex flex-col gap-4">
+            <AdminSettingsPanel
+              onClose={() => setShowSettings(false)}
+              onUpdated={() => auth.refresh()}
+            />
+            <FeatureFlagsPanel />
+          </div>
         )}
 
         {error && (
