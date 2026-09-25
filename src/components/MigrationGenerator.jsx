@@ -357,12 +357,55 @@ export default function MigrationGenerator() {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">SELECT Queries</h3>
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            {queryCount} {queryCount === 1 ? "query" : "queries"} detected
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">SELECT Queries</h3>
+            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              {queryCount} {queryCount === 1 ? "query" : "queries"} detected
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeDelete}
+                onChange={(e) => setIncludeDelete(e.target.checked)}
+                className="accent-foreground"
+              />
+              Include DELETE statements
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeIdentityInsert}
+                onChange={(e) => setIncludeIdentityInsert(e.target.checked)}
+                className="accent-foreground"
+              />
+              Include SET IDENTITY_INSERT ON/OFF
+            </label>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={
+                generating ||
+                queryCount === 0 ||
+                !credsComplete(creds) ||
+                (crossDbMode && !credsComplete(targetCreds))
+              }
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Generating...
+                </>
+              ) : (
+                "Generate Migration Script"
+              )}
+            </button>
+          </div>
         </div>
+
         <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]">
           <CodeMirror
             value={queriesText}
@@ -375,53 +418,12 @@ export default function MigrationGenerator() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-3">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeDelete}
-              onChange={(e) => setIncludeDelete(e.target.checked)}
-              className="accent-foreground"
-            />
-            Include DELETE statements
-          </label>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeIdentityInsert}
-              onChange={(e) => setIncludeIdentityInsert(e.target.checked)}
-              className="accent-foreground"
-            />
-            Include SET IDENTITY_INSERT ON/OFF
-          </label>
-        </div>
-
         {generateError && (
           <div className="flex items-start gap-2 mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>{generateError}</span>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={
-            generating ||
-            queryCount === 0 ||
-            !credsComplete(creds) ||
-            (crossDbMode && !credsComplete(targetCreds))
-          }
-          className="mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating...
-            </>
-          ) : (
-            "Generate Migration Script"
-          )}
-        </button>
       </div>
 
       {generating && <GeneratingOverlay step={generateStep} />}
