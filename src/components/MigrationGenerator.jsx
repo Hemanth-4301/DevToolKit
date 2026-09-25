@@ -528,9 +528,9 @@ export default function MigrationGenerator() {
 
       {script && !generating && (
         <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h3 className="text-sm font-semibold">Generated Script</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleCopy}
                 className={cn(
@@ -557,10 +557,11 @@ export default function MigrationGenerator() {
                   <Zap className="h-3 w-3" /> Execute on Target
                 </button>
               )}
+              <div className="w-px h-4 bg-border" />
               <button
                 onClick={handleClearScript}
                 title="Clear generated script"
-                className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 className="h-3 w-3" /> Clear
               </button>
@@ -574,14 +575,31 @@ export default function MigrationGenerator() {
           <div
             className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:max-h-[500px] [&_.cm-scroller]:overflow-auto"
             onKeyDown={(e) => {
-              // Ctrl+A and Ctrl+C are handled natively by CodeMirror's own
-              // keymap (see scriptExtensions — no editable={false}, so
-              // those commands aren't suppressed). Only Ctrl+X needs help:
-              // there's nothing to delete on a read-only doc, so a normal
-              // cut would select-and-do-nothing — copy instead, which is
-              // what "cut" degrades to on non-editable content elsewhere.
+              // Handled explicitly rather than left to CodeMirror/the
+              // browser's native selection: a native "select all" here
+              // could span the whole .cm-editor including the .cm-gutters
+              // line-number column, so Ctrl+C ends up copying line numbers
+              // along with the text. Bypassing selection entirely and
+              // copying the plain `script` string guarantees only the
+              // actual SQL is ever copied.
               const key = e.key.toLowerCase();
-              if (!(e.ctrlKey || e.metaKey) || key !== "x") return;
+              if (!(e.ctrlKey || e.metaKey) || (key !== "a" && key !== "c" && key !== "x")) return;
+              e.preventDefault();
+
+              if (key === "a") {
+                const contentEl = e.currentTarget.querySelector(".cm-content");
+                if (contentEl) {
+                  const range = document.createRange();
+                  range.selectNodeContents(contentEl);
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+                return;
+              }
+
+              // Ctrl+C / Ctrl+X: script is read-only, so both just copy —
+              // there's nothing for a "cut" to delete.
               navigator.clipboard.writeText(script);
               addToast({ title: "Script copied!", type: "success" });
             }}
