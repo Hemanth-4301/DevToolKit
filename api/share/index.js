@@ -34,13 +34,19 @@ export default async function handler(req, res) {
             chunkCount: validated.totalChunks,
             encoding: validated.encoding,
             transferId: validated.transferId,
+            // Pre-compression text length, reported by the client — lets
+            // the admin dashboard show a real size/preview for chunked
+            // shares without needing to decompress anything server-side.
+            // Only overwritten when the client actually sent one, so an
+            // out-of-order chunk arrival can't blank it out mid-transfer.
+            ...(validated.originalSize != null ? { originalSize: validated.originalSize } : {}),
             updatedAt: now,
           },
           $setOnInsert: { shareId: validated.slug, createdAt: now },
         }
       : {
           $set: { code: validated.code, updatedAt: now },
-          $unset: { chunkData: "", chunkCount: "", encoding: "", transferId: "" },
+          $unset: { chunkData: "", chunkCount: "", encoding: "", transferId: "", originalSize: "" },
           $setOnInsert: { shareId: validated.slug, createdAt: now },
         };
     const result = await collection.findOneAndUpdate(

@@ -99,6 +99,12 @@ export async function createShare({ code, slug }) {
         chunkIndex,
         totalChunks,
         data: encoded.slice(chunkIndex * CHUNK_SIZE, (chunkIndex + 1) * CHUNK_SIZE),
+        // Original (pre-compression) text length — the server can't derive
+        // this on its own since it only ever sees compressed bytes, and
+        // decompressing to measure it isn't something the DB's aggregation
+        // pipeline can do. Stored as-is so the admin dashboard can report
+        // real sizes for chunked/large shares instead of showing 0.
+        originalSize: code.length,
       }),
     });
   }

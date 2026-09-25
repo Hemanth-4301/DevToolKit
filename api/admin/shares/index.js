@@ -49,8 +49,28 @@ export default async function handler(req, res) {
               id: "$shareId",
               createdAt: 1,
               updatedAt: 1,
-              size: { $strLenCP: { $ifNull: ["$code", ""] } },
-              preview: { $substrCP: [{ $ifNull: ["$code", ""] }, 0, 200] },
+              // Chunked shares (>~2.8MB compressed) have no `code` field —
+              // their content lives in `chunkData` as compressed, chunked
+              // base64 text, which the aggregation pipeline can't
+              // decompress. `originalSize` (set at save time from the
+              // client's pre-compression length) is the real size for
+              // those; `code`'s own length covers everything else.
+              // Without this fallback, every chunked/large share reported
+              // as 0 bytes with an empty preview here.
+              size: {
+                $cond: [
+                  { $ne: ["$originalSize", null] },
+                  "$originalSize",
+                  { $strLenCP: { $ifNull: ["$code", ""] } },
+                ],
+              },
+              preview: {
+                $cond: [
+                  { $ne: ["$originalSize", null] },
+                  "[large share — compressed, preview unavailable]",
+                  { $substrCP: [{ $ifNull: ["$code", ""] }, 0, 200] },
+                ],
+              },
             },
           },
           { $sort: { createdAt: -1 } },
@@ -59,11 +79,22 @@ export default async function handler(req, res) {
       collection
         .aggregate([
           {
+            $project: {
+              size: {
+                $cond: [
+                  { $ne: ["$originalSize", null] },
+                  "$originalSize",
+                  { $strLenCP: { $ifNull: ["$code", ""] } },
+                ],
+              },
+            },
+          },
+          {
             $group: {
               _id: null,
               totalLinks: { $sum: 1 },
-              avgSize: { $avg: { $strLenCP: { $ifNull: ["$code", ""] } } },
-              maxSize: { $max: { $strLenCP: { $ifNull: ["$code", ""] } } },
+              avgSize: { $avg: "$size" },
+              maxSize: { $max: "$size" },
             },
           },
         ])
@@ -82,8 +113,19 @@ export default async function handler(req, res) {
       collection
         .aggregate([
           {
+            $project: {
+              size: {
+                $cond: [
+                  { $ne: ["$originalSize", null] },
+                  "$originalSize",
+                  { $strLenCP: { $ifNull: ["$code", ""] } },
+                ],
+              },
+            },
+          },
+          {
             $bucket: {
-              groupBy: { $strLenCP: { $ifNull: ["$code", ""] } },
+              groupBy: "$size",
               boundaries: SIZE_BUCKETS.slice(0, -1),
               default: SIZE_BUCKETS[SIZE_BUCKETS.length - 2],
               output: { count: { $sum: 1 } },

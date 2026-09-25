@@ -52,7 +52,7 @@ export function validateCreatePayload(body) {
 
 export function validateChunkPayload(body) {
   if (!body || typeof body !== "object") return { error: "Invalid request body." };
-  const { data, slug, transferId, chunkIndex, totalChunks, encoding } = body;
+  const { data, slug, transferId, chunkIndex, totalChunks, encoding, originalSize } = body;
   if (encoding !== "gzip-base64") return { error: "Unsupported share encoding." };
   if (typeof data !== "string" || data.length > MAX_CHUNK_LENGTH) {
     return { error: "Compressed share chunk is too large." };
@@ -69,5 +69,9 @@ export function validateChunkPayload(body) {
   }
   const cleanSlug = slug.trim().toLowerCase();
   if (RESERVED_SLUGS.has(cleanSlug)) return { error: "This link is reserved." };
-  return { data, slug: cleanSlug, transferId, chunkIndex, totalChunks, encoding };
+  // Optional — older clients won't send it. Only trusted as a display
+  // hint for the admin dashboard, never used for any size *enforcement*
+  // (MAX_CHUNK_LENGTH above already bounds what's actually stored).
+  const cleanOriginalSize = Number.isInteger(originalSize) && originalSize >= 0 ? originalSize : null;
+  return { data, slug: cleanSlug, transferId, chunkIndex, totalChunks, encoding, originalSize: cleanOriginalSize };
 }
