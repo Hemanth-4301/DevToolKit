@@ -18,6 +18,7 @@ import ScrollToTop from "../components/ScrollToTop";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
 import HistoryModal from "../components/HistoryModal";
+import MigrationGenerator from "../components/MigrationGenerator";
 import { useUndoHistory } from "../hooks/use-undo-history";
 
 const HISTORY_KEY = "devtoolkit_sql_history";
@@ -888,7 +889,7 @@ function tokenizeLine(line) {
   return tokens;
 }
 
-export default function SqlFormatter() {
+export default function SqlFormatter({ adminAuth }) {
   const initialState = getState();
   const [input, setInputRaw] = useState(initialState.input);
   const { record: recordInputUndo, handleKeyDown: handleInputUndoKeyDown } =
@@ -914,6 +915,10 @@ export default function SqlFormatter() {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const [showFindReplace, setShowFindReplace] = useState(false);
+  const [subTab, setSubTab] = useState("format"); // "format" | "migration"
+  useEffect(() => {
+    if (subTab === "migration" && !adminAuth?.authenticated) setSubTab("format");
+  }, [subTab, adminAuth?.authenticated]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -1071,16 +1076,45 @@ export default function SqlFormatter() {
           dialects.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowHistory(true)}
-          className="absolute right-0 top-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
-        >
-          <History className="h-3.5 w-3.5" />
-          History ({history.length})
-        </button>
+        {subTab === "format" && (
+          <button
+            type="button"
+            onClick={() => setShowHistory(true)}
+            className="absolute right-0 top-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+          >
+            <History className="h-3.5 w-3.5" />
+            History ({history.length})
+          </button>
+        )}
       </div>
 
+      {adminAuth?.authenticated && (
+        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden w-fit mb-4">
+          {[
+            { id: "format", label: "Format" },
+            { id: "migration", label: "Migration Generator" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSubTab(t.id)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium transition-colors",
+                subTab === t.id
+                  ? "bg-foreground text-background"
+                  : "hover:bg-accent text-muted-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {subTab === "migration" && adminAuth?.authenticated ? (
+        <MigrationGenerator />
+      ) : (
+      <>
       <div className="tool-toolbar">
         <div className="tool-toolbar-main">
           <select
@@ -1409,6 +1443,8 @@ export default function SqlFormatter() {
         ]}
       />
       <ScrollToTop />
+      </>
+      )}
     </div>
   );
 }

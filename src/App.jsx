@@ -139,7 +139,7 @@ function AppShell() {
             </section>
 
             <section className={activeTab === "sql" ? "block" : "hidden"}>
-              <SqlFormatter />
+              <SqlFormatter adminAuth={adminAuth} />
             </section>
 
             <section className={activeTab === "base64" ? "block" : "hidden"}>
