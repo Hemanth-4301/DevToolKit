@@ -8,7 +8,7 @@ import { tags as t } from "@lezer/highlight";
 import { cn } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
-import { getShare, createShare, MAX_CODE_LENGTH } from "../lib/codeShareApi";
+import { getShare, getShareMeta, createShare, MAX_CODE_LENGTH } from "../lib/codeShareApi";
 import { detectLanguageId, languageExtensionFor } from "../lib/detectLanguage";
 import { EDITOR_THEMES, getEditorTheme } from "../lib/editorThemes";
 import { formatTimestamp } from "../lib/formatDate";
@@ -130,6 +130,17 @@ function combinedBucketCode(buckets) {
   return buckets.map((bucket) => bucket.code).filter(Boolean).join("\n\n");
 }
 
+// Cheap approximation of serializeBuckets(...).length for the size badge —
+// avoids a full JSON.stringify over every bucket's code on every render
+// (including one per keystroke) just to display a byte count.
+function estimateBucketsLength(buckets) {
+  let total = 40; // fixed JSON scaffolding (format, buckets array, braces)
+  for (const bucket of buckets) {
+    total += (bucket.title?.length || 0) + bucket.code.length + 24; // per-item JSON overhead
+  }
+  return total;
+}
+
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -192,6 +203,9 @@ export default function SharedSnippet() {
   // can't clobber the UI state after a newer one already resolved.
   const latestSaveTokenRef = useRef(0);
   const lastSavedCodeRef = useRef(null);
+  // Last known server-side updatedAt — lets polling ask a cheap
+  // "did this change?" question before paying for a full content fetch.
+  const lastUpdatedAtRef = useRef(null);
   // Preserve bucket structure while the checkbox is temporarily turned off.
   const bucketSnapshotRef = useRef(null);
   const scrollerRef = useRef(null);
@@ -203,8 +217,17 @@ export default function SharedSnippet() {
   const codeRef = useRef("");
   const bucketsRef = useRef(buckets);
   bucketsRef.current = buckets;
-  const persistedContent = bucketMode ? serializeBuckets(buckets) : code;
-  codeRef.current = persistedContent;
+  // Cheap length estimate for the size badge — avoids a full
+  // JSON.stringify over every bucket's code on every render (including
+  // one per keystroke), which is what made typing in large buckets feel
+  // like it hung. Actual serialization only happens lazily, right before
+  // it's needed (inside the debounced save, or the infrequent poll tick).
+  const persistedLength = bucketMode ? estimateBucketsLength(buckets) : code.length;
+  // Lazy getter — callers that need the real serialized string (the
+  // debounced save, the once-per-2s poll comparison) call this instead of
+  // recomputing it on every render.
+  const getPersistedContent = () => (bucketMode ? serializeBuckets(bucketsRef.current) : code);
+  codeRef.current = getPersistedContent;
 
   useEffect(() => {
     let cancelled = false;
@@ -226,6 +249,7 @@ export default function SharedSnippet() {
         }
         setCreatedAt(data.createdAt);
         lastSavedCodeRef.current = data.code;
+        lastUpdatedAtRef.current = data.updatedAt || data.createdAt;
       } catch (err) {
         if (cancelled) return;
         if (!/not.*found|nothing.*shared/i.test(err.message || "")) {
@@ -250,14 +274,26 @@ export default function SharedSnippet() {
   // closest approximation of "live" sync without a persistent connection.
   // Skipped entirely while the user has unsent local edits in flight, so
   // a slower remote fetch can never overwrite what they just typed.
+  //
+  // Each tick first asks a cheap "did this change?" question (just the
+  // timestamp, via ?meta=1) and only pays for the full — possibly
+  // multi-MB, gzip-decompressed — content fetch when the answer is yes.
+  // Without this, every 2s tick re-downloaded and re-decompressed the
+  // entire document regardless of whether anything changed, which is what
+  // made large shares feel like they were hanging.
   useEffect(() => {
     if (loading) return;
     const interval = setInterval(async () => {
       if (isEditingRef.current) return;
       try {
+        const meta = await getShareMeta(slug);
+        if (isEditingRef.current) return; // re-check post-await
+        const remoteUpdatedAt = meta.updatedAt || meta.createdAt;
+        if (remoteUpdatedAt === lastUpdatedAtRef.current) return; // nothing changed
+
         const data = await getShare(slug);
         if (isEditingRef.current) return; // re-check post-await
-        if (data.code !== codeRef.current) {
+        if (data.code !== codeRef.current()) {
           const remoteBuckets = parseBucketDocument(data.code);
           if (remoteBuckets) {
             setBucketMode(true);
@@ -272,6 +308,7 @@ export default function SharedSnippet() {
           setRemoteUpdateAvailable(true);
           setTimeout(() => setRemoteUpdateAvailable(false), 2000);
         }
+        lastUpdatedAtRef.current = data.updatedAt || remoteUpdatedAt;
       } catch {
         // A missed poll (network blip, or the snippet was deleted
         // elsewhere) isn't worth surfacing as an error — just try again
@@ -289,6 +326,7 @@ export default function SharedSnippet() {
         const result = await createShare({ code: text, slug });
         if (token !== latestSaveTokenRef.current) return; // superseded by a newer save
         lastSavedCodeRef.current = text;
+        lastUpdatedAtRef.current = result.updatedAt || lastUpdatedAtRef.current;
         setCreatedAt((prev) => prev || result.createdAt);
         setSaveState("saved");
       } catch (err) {
@@ -302,27 +340,38 @@ export default function SharedSnippet() {
     [slug],
   );
 
-  const scheduleSave = (text) => {
-    if (text.length > MAX_CODE_LENGTH) {
-      setSaveError(`Code exceeds the maximum size of ${(MAX_CODE_LENGTH / 1_000_000).toFixed(0)}MB.`);
-      return;
-    }
+  // `getText` is called lazily, inside the debounce timeout, rather than
+  // eagerly by the caller. For bucket mode this matters a lot: serializing
+  // (JSON.stringify over every bucket's code) is O(total document size),
+  // and previously ran synchronously on the main thread on every single
+  // keystroke in any bucket — with several large buckets that was enough
+  // to make typing feel like it hung. Deferring it means fast keystrokes
+  // only pay for the serialize once, right before the actual save.
+  const scheduleSave = (getText) => {
     setSaveError(null);
     clearTimeout(saveTimerRef.current);
-
-    if (text === lastSavedCodeRef.current) {
-      setSaveState(lastSavedCodeRef.current ? "saved" : "idle");
-      isEditingRef.current = false;
-      return;
-    }
-
     isEditingRef.current = true;
     setSaveState("pending");
     const token = ++latestSaveTokenRef.current;
-    saveTimerRef.current = setTimeout(
-      () => performSave(text, token),
-      autosaveDelayFor(text.length),
-    );
+    // Debounce delay is picked from the currently-known content length as
+    // a cheap proxy — good enough since it only affects timing, not
+    // correctness (the real size check happens below, off the hot path).
+    // Uses the cheap length estimate rather than forcing a full serialize.
+    const approxLength = persistedLength;
+    saveTimerRef.current = setTimeout(() => {
+      const text = getText();
+      if (text.length > MAX_CODE_LENGTH) {
+        setSaveError(`Code exceeds the maximum size of ${(MAX_CODE_LENGTH / 1_000_000).toFixed(0)}MB.`);
+        isEditingRef.current = false;
+        return;
+      }
+      if (text === lastSavedCodeRef.current) {
+        setSaveState(lastSavedCodeRef.current ? "saved" : "idle");
+        isEditingRef.current = false;
+        return;
+      }
+      performSave(text, token);
+    }, autosaveDelayFor(approxLength));
   };
 
   const handleChange = (text) => {
@@ -330,7 +379,7 @@ export default function SharedSnippet() {
     // snapshot; re-enabling buckets should create one bucket from this text.
     if (!bucketMode) bucketSnapshotRef.current = null;
     setCode(text);
-    scheduleSave(text);
+    scheduleSave(() => text);
   };
 
   const handleBucketChange = (id, field, value) => {
@@ -339,7 +388,7 @@ export default function SharedSnippet() {
     );
     setBuckets(nextBuckets);
     bucketSnapshotRef.current = nextBuckets;
-    scheduleSave(serializeBuckets(nextBuckets));
+    scheduleSave(() => serializeBuckets(bucketsRef.current));
   };
 
   const addBucket = () => {
@@ -349,7 +398,7 @@ export default function SharedSnippet() {
     ];
     setBuckets(nextBuckets);
     bucketSnapshotRef.current = nextBuckets;
-    scheduleSave(serializeBuckets(nextBuckets));
+    scheduleSave(() => serializeBuckets(nextBuckets));
   };
 
   const removeBucket = (id) => {
@@ -357,7 +406,7 @@ export default function SharedSnippet() {
     const nextBuckets = bucketsRef.current.filter((bucket) => bucket.id !== id);
     setBuckets(nextBuckets);
     bucketSnapshotRef.current = nextBuckets;
-    scheduleSave(serializeBuckets(nextBuckets));
+    scheduleSave(() => serializeBuckets(nextBuckets));
   };
 
   const toggleBucketMode = (enabled) => {
@@ -368,13 +417,13 @@ export default function SharedSnippet() {
       setBuckets(nextBuckets);
       setBucketMode(true);
       bucketSnapshotRef.current = nextBuckets;
-      scheduleSave(serializeBuckets(nextBuckets));
+      scheduleSave(() => serializeBuckets(nextBuckets));
     } else {
       const nextCode = combinedBucketCode(bucketsRef.current);
       setCode(nextCode);
       setBucketMode(false);
       bucketSnapshotRef.current = bucketsRef.current;
-      scheduleSave(nextCode);
+      scheduleSave(() => nextCode);
     }
   };
 
@@ -432,11 +481,11 @@ export default function SharedSnippet() {
           <SaveStatus state={saveState} />
           <span className={cn(
             "text-[11px] sm:text-xs shrink-0",
-            persistedContent.length > MAX_CODE_LENGTH
+            persistedLength > MAX_CODE_LENGTH
               ? "text-red-400"
               : "text-muted-foreground",
           )}>
-            {formatBytes(persistedContent.length)} / {formatBytes(MAX_CODE_LENGTH)}
+            {formatBytes(persistedLength)} / {formatBytes(MAX_CODE_LENGTH)}
           </span>
           {remoteUpdateAvailable && (
             <span className="flex items-center gap-1 text-xs text-blue-400">

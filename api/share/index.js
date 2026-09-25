@@ -52,6 +52,7 @@ export default async function handler(req, res) {
     return res.status(201).json({
       id: validated.slug,
       createdAt: result.createdAt.toISOString(),
+      updatedAt: (result.updatedAt || result.createdAt).toISOString(),
     });
   } catch (err) {
     console.error("Failed to save share:", err);

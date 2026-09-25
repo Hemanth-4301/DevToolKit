@@ -25,6 +25,23 @@ export default async function handler(req, res) {
     const collection = await getSharesCollection();
 
     if (req.method === "GET") {
+      // Lightweight polling mode — projects only the timestamp fields so a
+      // client checking "did this change?" doesn't pull the full (possibly
+      // multi-MB, chunked) document over the wire on every poll tick.
+      if (req.query.meta === "1") {
+        const meta = await collection.findOne(
+          { shareId: id },
+          { projection: { _id: 0, updatedAt: 1, createdAt: 1 } },
+        );
+        if (!meta) {
+          return res.status(404).json({ error: "Nothing has been shared at this link yet." });
+        }
+        return res.status(200).json({
+          updatedAt: meta.updatedAt || meta.createdAt,
+          createdAt: meta.createdAt,
+        });
+      }
+
       const doc = await collection.findOne({ shareId: id });
       if (!doc) {
         return res.status(404).json({ error: "Nothing has been shared at this link yet." });
@@ -39,12 +56,14 @@ export default async function handler(req, res) {
           encoding: doc.encoding,
           data: chunks.join(""),
           createdAt: doc.createdAt,
+          updatedAt: doc.updatedAt || doc.createdAt,
         });
       }
       return res.status(200).json({
         id: doc.shareId,
         code: doc.code,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt || doc.createdAt,
       });
     }
 

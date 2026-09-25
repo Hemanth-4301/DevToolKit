@@ -105,6 +105,13 @@ export async function getShare(id) {
   return result;
 }
 
+// Cheap poll — fetches only the timestamp, not the (possibly multi-MB)
+// content, so live-sync polling doesn't re-download and re-decompress the
+// whole document every tick just to find out nothing changed.
+export async function getShareMeta(id) {
+  return request(`${API_BASE}/${encodeURIComponent(id)}?meta=1`);
+}
+
 export function deleteShare(id) {
   return request(`${API_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
