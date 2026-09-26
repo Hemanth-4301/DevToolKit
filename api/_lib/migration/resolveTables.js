@@ -82,10 +82,28 @@ export async function resolveTables(sourcePool, targetPool, parsedQueries) {
         );
       }
       if (objType === "proc") {
-        // Stored procedure — execute it and use the result rows.
+        // Stored procedure — execute it to get the actual rows.
         execText = `EXEC [${schema}].[${table}]`;
-        const rowsResult = await sourcePool.request().query(execText);
-        const rows = rowsResult.recordset || [];
+        let rows = [];
+        try {
+          const rowsResult = await sourcePool.request().query(execText);
+          rows = rowsResult.recordset || [];
+        } catch (execErr) {
+          const msg = execErr?.message || "";
+          if (/expects parameter/i.test(msg) || /was not supplied/i.test(msg)) {
+            throw Object.assign(
+              new Error(
+                `Stored procedure [${schema}].[${table}] requires parameters and cannot be called without arguments. ` +
+                `Use a SELECT query with a manual EXEC instead.`
+              ),
+              { userFacing: true },
+            );
+          }
+          throw Object.assign(
+            new Error(`Failed to execute stored procedure [${schema}].[${table}]: ${msg}`),
+            { userFacing: true },
+          );
+        }
 
         // Derive columns from the actual result rows (proc has no table columns).
         const procColumns = rows.length > 0
@@ -94,7 +112,7 @@ export async function resolveTables(sourcePool, targetPool, parsedQueries) {
 
         if (procColumns.length === 0) {
           throw Object.assign(
-            new Error(`Could not determine columns from stored procedure ${schema}.${table}. Make sure it returns a result set.`),
+            new Error(`Could not determine columns from stored procedure [${schema}].[${table}]. Make sure it returns a result set.`),
             { userFacing: true },
           );
         }
