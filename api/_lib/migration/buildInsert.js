@@ -45,6 +45,29 @@ export function formatValue(value, dataType) {
   return escapeString(value);
 }
 
+// Builds a CREATE OR ALTER PROCEDURE script section for a stored procedure,
+// replacing the leading CREATE PROCEDURE with CREATE OR ALTER PROCEDURE so it
+// is safe to run on the target whether or not the SP already exists.
+export function buildProcScript({ schema, table, procDefinition }) {
+  const qualified = `[${schema}].[${table}]`;
+  // Replace CREATE PROCEDURE (with optional whitespace/schema prefix) with
+  // CREATE OR ALTER PROCEDURE so it is idempotent on the target.
+  const normalized = procDefinition.replace(
+    /^\s*CREATE\s+(PROC\b|PROCEDURE\b)/im,
+    "CREATE OR ALTER PROCEDURE",
+  );
+
+  const lines = [];
+  lines.push("-- --------------------------------------------------------");
+  lines.push(`-- Procedure: ${qualified}`);
+  lines.push("-- --------------------------------------------------------");
+  lines.push("");
+  lines.push(normalized.trimEnd());
+  lines.push("");
+  lines.push("GO");
+  return lines.join("\n");
+}
+
 // Builds one full migration script section for a single table: header
 // comment, DELETE, IDENTITY_INSERT toggle (only if needed), and one
 // INSERT per row — all wrapped in its own transaction with TRY/CATCH, so

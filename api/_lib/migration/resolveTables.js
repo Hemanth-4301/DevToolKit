@@ -35,26 +35,19 @@ async function resolveObjectType(pool, schema, name) {
   return "table";
 }
 
-// Infers column types from the first result set of a stored procedure by
-// running it with FMTONLY (no actual rows returned, just metadata).
-async function fetchProcColumns(pool, schema, proc) {
+// Reads the stored procedure's SQL definition from sys.sql_modules.
+async function fetchProcDefinition(pool, schema, proc) {
   const req = pool.request();
-  try {
-    await req.query("SET FMTONLY ON");
-    const result = await pool.request().query(`EXEC [${schema}].[${proc}]`);
-    await pool.request().query("SET FMTONLY OFF");
-    // mssql returns column metadata even when no rows come back
-    return (result.recordset?.columns
-      ? Object.values(result.recordset.columns).map((c) => ({
-          name: c.name,
-          dataType: c.type?.declaration?.toLowerCase() ?? "nvarchar",
-          isIdentity: false,
-        }))
-      : []);
-  } catch {
-    await pool.request().query("SET FMTONLY OFF").catch(() => {});
-    return [];
-  }
+  req.input("schema", sql.NVarChar, schema);
+  req.input("proc", sql.NVarChar, proc);
+  const result = await req.query(`
+    SELECT m.definition
+    FROM sys.sql_modules m
+    JOIN sys.objects o ON m.object_id = o.object_id
+    JOIN sys.schemas s ON o.schema_id = s.schema_id
+    WHERE s.name = @schema AND o.name = @proc AND o.type = 'P'
+  `);
+  return result.recordset.length > 0 ? result.recordset[0].definition : null;
 }
 
 // For each parsed query, reads rows from `sourcePool` and resolves the
@@ -82,44 +75,15 @@ export async function resolveTables(sourcePool, targetPool, parsedQueries) {
         );
       }
       if (objType === "proc") {
-        // Stored procedure — execute it to get the actual rows.
-        execText = `EXEC [${schema}].[${table}]`;
-        let rows = [];
-        try {
-          const rowsResult = await sourcePool.request().query(execText);
-          rows = rowsResult.recordset || [];
-        } catch (execErr) {
-          const msg = execErr?.message || "";
-          if (/expects parameter/i.test(msg) || /was not supplied/i.test(msg)) {
-            throw Object.assign(
-              new Error(
-                `Stored procedure [${schema}].[${table}] requires parameters and cannot be called without arguments. ` +
-                `Use a SELECT query with a manual EXEC instead.`
-              ),
-              { userFacing: true },
-            );
-          }
+        // Stored procedure — read its definition and output CREATE OR ALTER PROCEDURE.
+        const definition = await fetchProcDefinition(sourcePool, schema, table);
+        if (!definition) {
           throw Object.assign(
-            new Error(`Failed to execute stored procedure [${schema}].[${table}]: ${msg}`),
+            new Error(`Could not read definition for stored procedure [${schema}].[${table}]. Check permissions on sys.sql_modules.`),
             { userFacing: true },
           );
         }
-
-        // Derive columns from the actual result rows (proc has no table columns).
-        const procColumns = rows.length > 0
-          ? Object.keys(rows[0]).map((name) => ({ name, dataType: "nvarchar", isIdentity: false }))
-          : await fetchProcColumns(sourcePool, schema, table);
-
-        if (procColumns.length === 0) {
-          throw Object.assign(
-            new Error(`Could not determine columns from stored procedure [${schema}].[${table}]. Make sure it returns a result set.`),
-            { userFacing: true },
-          );
-        }
-
-        // For a stored proc we can't generate a DELETE (no filter key), so
-        // pass whereClause as null to signal buildTableScript to skip it.
-        results.push({ schema, table, whereClause: null, columns: procColumns, rows, isProc: true });
+        results.push({ schema, table, isProc: true, procDefinition: definition });
         continue;
       }
       // It's a table/view — fall through with SELECT * (no WHERE = full table).

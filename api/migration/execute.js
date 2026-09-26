@@ -4,6 +4,7 @@ import { withConnection, friendlyConnectionError } from "../_lib/migration/mssql
 import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
 import { resolveTables } from "../_lib/migration/resolveTables.js";
 import { executeTableStatements } from "../_lib/migration/executeTable.js";
+import { buildProcScript } from "../_lib/migration/buildInsert.js";
 
 const MAX_QUERIES = 50;
 const MAX_TOTAL_QUERY_LENGTH = 200_000;
@@ -110,12 +111,19 @@ export default async function handler(req, res) {
         const outcomes = [];
         for (const t of tables) {
           try {
-            const outcome = await executeTableStatements(targetPool, {
-              ...t,
-              includeDelete: validated.includeDelete,
-              includeIdentityInsert: validated.includeIdentityInsert,
-            });
-            outcomes.push(outcome);
+            if (t.isProc) {
+              // For stored procedures, run the CREATE OR ALTER PROCEDURE script directly.
+              const script = buildProcScript(t);
+              await targetPool.request().batch(script);
+              outcomes.push({ schema: t.schema, table: t.table, ok: true, rowsInserted: 0, rowsDeleted: 0 });
+            } else {
+              const outcome = await executeTableStatements(targetPool, {
+                ...t,
+                includeDelete: validated.includeDelete,
+                includeIdentityInsert: validated.includeIdentityInsert,
+              });
+              outcomes.push(outcome);
+            }
           } catch (err) {
             outcomes.push({
               schema: t.schema,

@@ -2,7 +2,7 @@ import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 import { requireAdminOrFlag } from "../_lib/featureFlags.js";
 import { withConnection, friendlyConnectionError } from "../_lib/migration/mssqlClient.js";
 import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
-import { buildTableScript } from "../_lib/migration/buildInsert.js";
+import { buildTableScript, buildProcScript } from "../_lib/migration/buildInsert.js";
 import { resolveTables } from "../_lib/migration/resolveTables.js";
 
 const MAX_QUERIES = 50;
@@ -98,11 +98,13 @@ export default async function handler(req, res) {
     });
 
     const sections = tables.map((t) =>
-      buildTableScript({
-        ...t,
-        includeDelete: validated.includeDelete,
-        includeIdentityInsert: validated.includeIdentityInsert,
-      }),
+      t.isProc
+        ? buildProcScript(t)
+        : buildTableScript({
+            ...t,
+            includeDelete: validated.includeDelete,
+            includeIdentityInsert: validated.includeIdentityInsert,
+          }),
     );
 
     const header = [
