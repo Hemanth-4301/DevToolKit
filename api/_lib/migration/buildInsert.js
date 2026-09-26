@@ -82,7 +82,10 @@ export function buildTableScript({
   const lines = [];
   lines.push("-- --------------------------------------------------------");
   lines.push(`-- Table  : ${qualified}${isProc ? " (via stored procedure)" : ""}`);
-  lines.push(`-- Filter : ${whereClause ? `WHERE ${whereClause}` : isProc ? "(stored procedure — no DELETE generated)" : "(full table)"}`);
+  const filterComment = whereClause
+    ? `WHERE ${whereClause.replace(/\s*\n\s*/g, " ").replace(/\s+/g, " ").trim()}`
+    : isProc ? "(stored procedure — no DELETE generated)" : "(full table)";
+  lines.push(`-- Filter : ${filterComment}`);
   lines.push(`-- Rows   : ${rows.length}`);
   lines.push("-- --------------------------------------------------------");
   lines.push("");
