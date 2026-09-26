@@ -1406,65 +1406,47 @@ html.dev-mode .admin-login-card::after {
   80% { transform: translateX(6px); }
 }
 
-/* Liquid loader — a circular ring that slowly rotates, with a "liquid"
-   fill (two offset sine-wave layers, filled with the accent color) that
-   rises and falls inside it while scrolling sideways, like liquid
-   sloshing in a glass. Pure CSS: the waves are wide repeating
-   radial-gradient strips clipped to a circle and animated with
-   background-position + a height transform on the fill container. */
+/* Migration orbit loader — a ring with three dots chasing each other.
+   The wrapper spins; each dot is offset by 120° via nth-child delay. */
 .migration-liquid-loader {
   position: relative;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  animation: migration-ring-spin-kf 2.4s linear infinite;
+}
+
+.migration-liquid-loader span {
+  position: absolute;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 9999px;
-  border: 2px solid hsl(var(--border));
-  overflow: hidden;
-  animation: migration-liquid-spin-kf 6s linear infinite;
-  background: hsl(var(--background));
+  background: hsl(var(--foreground));
+  top: 50%;
+  left: 50%;
+  margin: -0.3rem 0 0 -0.3rem;
+  animation: migration-dot-pulse-kf 1.2s ease-in-out infinite;
 }
 
-.migration-liquid-fill {
-  position: absolute;
-  left: -25%;
-  right: -25%;
-  bottom: 0;
-  height: 55%;
-  animation: migration-liquid-level-kf 3.2s ease-in-out infinite;
+.migration-liquid-loader span:nth-child(1) {
+  transform: rotate(0deg) translateY(-1.25rem);
+  animation-delay: 0s;
+}
+.migration-liquid-loader span:nth-child(2) {
+  transform: rotate(120deg) translateY(-1.25rem);
+  animation-delay: -0.4s;
+}
+.migration-liquid-loader span:nth-child(3) {
+  transform: rotate(240deg) translateY(-1.25rem);
+  animation-delay: -0.8s;
 }
 
-.migration-liquid-fill::before,
-.migration-liquid-fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-repeat: repeat-x;
-  background-size: 50% 100%;
-}
-
-.migration-liquid-fill::before {
-  background-image: radial-gradient(ellipse 50% 60% at 50% 0%, transparent 60%, hsl(var(--primary) / 0.9) 61%);
-  animation: migration-liquid-wave-kf 2.6s linear infinite;
-}
-
-.migration-liquid-fill::after {
-  background-image: radial-gradient(ellipse 50% 60% at 50% 0%, transparent 60%, hsl(var(--primary) / 0.6) 61%);
-  animation: migration-liquid-wave-kf 4s linear infinite reverse;
-  opacity: 0.8;
-}
-
-@keyframes migration-liquid-spin-kf {
-  from { transform: rotate(0deg); }
+@keyframes migration-ring-spin-kf {
   to { transform: rotate(360deg); }
 }
 
-@keyframes migration-liquid-level-kf {
-  0%, 100% { height: 40%; }
-  50% { height: 62%; }
-}
-
-@keyframes migration-liquid-wave-kf {
-  from { background-position-x: 0; }
-  to { background-position-x: -100%; }
+@keyframes migration-dot-pulse-kf {
+  0%, 100% { opacity: 1;   scale: 1; }
+  50%       { opacity: 0.2; scale: 0.6; }
 }
 
 .admin-login-icon {

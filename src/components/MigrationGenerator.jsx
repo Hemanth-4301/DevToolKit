@@ -803,7 +803,7 @@ function GeneratingOverlay({ step, title = "Generating migration script" }) {
   return (
     <div className="relative overflow-hidden rounded-lg border border-border bg-card p-8 flex flex-col items-center justify-center gap-4">
       <div className="migration-liquid-loader">
-        <div className="migration-liquid-fill" />
+        <span /><span /><span />
       </div>
       <div className="flex flex-col items-center gap-1.5">
         <span className="text-sm font-semibold">{title}</span>
