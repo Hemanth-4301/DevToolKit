@@ -90,8 +90,18 @@ export function buildTableScript({
   includeIdentityInsert = true,
   isProc = false,
 }) {
-  const hasIdentity = includeIdentityInsert && columns.some((c) => c.isIdentity);
-  const columnList = columns.map((c) => `[${c.name}]`).join(",");
+  const identityCol = columns.find((c) => c.isIdentity);
+  // Only use IDENTITY_INSERT if every row has a non-null value for the identity
+  // column — SQL Server rejects NULL as an explicit identity value.
+  const hasIdentity =
+    includeIdentityInsert &&
+    !!identityCol &&
+    rows.every((r) => r[identityCol.name] !== null && r[identityCol.name] !== undefined);
+  // When identity col has NULLs, omit it from INSERT so SQL Server auto-assigns.
+  const insertColumns = hasIdentity || !identityCol
+    ? columns
+    : columns.filter((c) => !c.isIdentity);
+  const columnList = insertColumns.map((c) => `[${c.name}]`).join(",");
   const qualified = `${schema}.${table}`;
   // SQL Server limits transaction names to 32 characters — truncate and
   // append a short hash so names stay unique even after truncation.
@@ -130,7 +140,7 @@ export function buildTableScript({
   }
 
   for (const row of rows) {
-    const values = columns.map((c) => formatValue(row[c.name], c.dataType)).join(",");
+    const values = insertColumns.map((c) => formatValue(row[c.name], c.dataType)).join(",");
     lines.push(`  INSERT INTO [${schema}].[${table}](${columnList})VALUES(${values})`);
   }
   lines.push("");
@@ -147,7 +157,11 @@ export function buildTableScript({
   lines.push("  DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE()");
   lines.push("  DECLARE @ErrSev INT = ERROR_SEVERITY()");
   lines.push("  DECLARE @ErrSta INT = ERROR_STATE()");
-  lines.push(`  IF XACT_STATE() <> 0 ROLLBACK TRANSACTION ${txnName}`);
+  // XACT_STATE() = 1  → committable, roll back by name
+  // XACT_STATE() = -1 → doomed (e.g. FK violation killed it), must ROLLBACK without name
+  // XACT_STATE() = 0  → no active transaction, nothing to roll back
+  lines.push(`  IF XACT_STATE() = 1 ROLLBACK TRANSACTION ${txnName}`);
+  lines.push(`  IF XACT_STATE() = -1 ROLLBACK`);
   if (hasIdentity) {
     lines.push(`  SET IDENTITY_INSERT ${qualified} OFF`);
   }
