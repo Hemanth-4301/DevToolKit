@@ -118,15 +118,15 @@ export function buildTableScript({
   lines.push(`  PRINT 'OK: ${qualified} — ${rows.length} row(s) migrated.'`);
   lines.push("END TRY");
   lines.push("BEGIN CATCH");
+  lines.push("  DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE()");
+  lines.push("  DECLARE @ErrSev INT = ERROR_SEVERITY()");
+  lines.push("  DECLARE @ErrSta INT = ERROR_STATE()");
   lines.push(`  IF XACT_STATE() <> 0 ROLLBACK TRANSACTION ${txnName}`);
   if (hasIdentity) {
-    // Always safe to issue even if IDENTITY_INSERT was already off for
-    // this table/session — SQL Server only errors on turning a second
-    // one ON while another is active, never on OFF.
     lines.push(`  SET IDENTITY_INSERT ${qualified} OFF`);
   }
-  lines.push(`  PRINT 'ROLLED BACK: ${qualified} — ' + ERROR_MESSAGE()`);
-  lines.push("  RAISERROR(ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE());");
+  lines.push(`  PRINT 'ROLLED BACK: ${qualified} — ' + @ErrMsg`);
+  lines.push("  RAISERROR(@ErrMsg, @ErrSev, @ErrSta);");
   lines.push("END CATCH");
   lines.push("GO");
 
