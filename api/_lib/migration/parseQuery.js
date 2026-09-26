@@ -1,10 +1,12 @@
-// Splits a textarea's worth of pasted SELECT statements into individual
-// query strings. Queries are separated at a newline immediately followed
-// by a line starting with SELECT — everything else (including a WHERE
-// ... IN (...) list that wraps across several lines) stays attached to
-// the query it belongs to. Used both by generate.js and mirrored on the
-// frontend for the live "N queries detected" counter, so the count always
-// matches what the backend will actually process.
+// Matches a bare object reference: optional [schema]. then [name], with or
+// without brackets. E.g. "cn.tblFoo", "[dbo].[Orders]", "tblBar".
+const BARE_NAME_RE = /^\[?([A-Za-z_][A-Za-z0-9_]*)\]?\.\[?([A-Za-z_][A-Za-z0-9_]*)\]?$|^\[?([A-Za-z_][A-Za-z0-9_]*)\]?$/;
+
+// Splits a textarea's worth of pasted SELECT statements or bare table/proc
+// names into individual query strings. Queries are separated at a newline
+// immediately followed by a line starting with SELECT or a bare name — used
+// both by generate.js and mirrored on the frontend for the live "N queries
+// detected" counter, so the count always matches what the backend processes.
 export function splitQueries(raw) {
   if (typeof raw !== "string" || !raw.trim()) return [];
 
@@ -13,7 +15,9 @@ export function splitQueries(raw) {
   let current = [];
 
   for (const line of lines) {
-    if (/^\s*select\b/i.test(line) && current.length) {
+    const isNewQuery =
+      (/^\s*select\b/i.test(line) || BARE_NAME_RE.test(line.trim())) && current.length;
+    if (isNewQuery) {
       queries.push(current.join("\n").trim());
       current = [line];
     } else {
@@ -28,14 +32,24 @@ export function splitQueries(raw) {
 const FROM_TABLE_RE = /\bfrom\s+(?:\[?([A-Za-z_][A-Za-z0-9_]*)\]?\.)?\[?([A-Za-z_][A-Za-z0-9_]*)\]?/i;
 const WHERE_RE = /\bwhere\b([\s\S]*)$/i;
 
-// Parses one SELECT query into its target table and WHERE clause. Returns
-// { error } if the query doesn't look like a simple `SELECT ... FROM
-// table [WHERE ...]` this tool can safely turn into DELETE/INSERT
-// statements.
+// Parses one entry — either a SELECT query or a bare "schema.table" / "table"
+// name — into { schema, table, whereClause, selectText }. A bare name gets
+// expanded to SELECT * FROM schema.table with no WHERE (full-table migration).
+// Returns { error } for anything that can't be understood.
 export function parseQuery(queryText) {
   const trimmed = queryText.trim().replace(/;\s*$/, "");
+
+  // Bare table/proc name — no SQL keywords at all.
+  if (BARE_NAME_RE.test(trimmed)) {
+    const m = BARE_NAME_RE.exec(trimmed);
+    const schema = (m[1] || "dbo");
+    const table = m[2] || m[3];
+    const selectText = `SELECT * FROM [${schema}].[${table}]`;
+    return { schema, table, whereClause: "", selectText, fullTable: true };
+  }
+
   if (!/^select\b/i.test(trimmed)) {
-    return { error: "Not a SELECT query." };
+    return { error: `Unrecognised input — enter a SELECT query or a bare table name (e.g. cn.tblFoo).` };
   }
 
   const fromMatch = FROM_TABLE_RE.exec(trimmed);

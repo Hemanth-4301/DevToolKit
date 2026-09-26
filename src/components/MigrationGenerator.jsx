@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -12,7 +12,10 @@ import {
   Zap,
   XCircle,
   Trash2,
+  Upload,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
@@ -102,6 +105,47 @@ export default function MigrationGenerator() {
 
   const [queriesText, setQueriesText] = useState("");
   const queryCount = useMemo(() => splitQueries(queriesText).length, [queriesText]);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = (file) => {
+    if (!file) return;
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (!["xlsx", "xls", "csv"].includes(ext)) {
+      setUploadError("Only .xlsx, .xls, or .csv files are supported.");
+      return;
+    }
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        // Take first column of each row, skip header if it looks like a label
+        const values = rows
+          .map((row) => String(row[0] ?? "").trim())
+          .filter(Boolean);
+        // Skip header row if first value looks like a column label (no dots, no spaces, short word)
+        const firstIsHeader =
+          values.length > 0 &&
+          /^(query|queries|table|tables|name|sp|proc|procedure|object|input)$/i.test(values[0]);
+        const entries = firstIsHeader ? values.slice(1) : values;
+        if (entries.length === 0) {
+          setUploadError("No data found in the first column.");
+          return;
+        }
+        const joined = entries.join("\n");
+        setQueriesText((prev) => (prev.trim() ? prev.trimEnd() + "\n" + joined : joined));
+        setGeneratedQueries(null);
+        addToast({ title: `Loaded ${entries.length} entr${entries.length === 1 ? "y" : "ies"} from ${file.name}`, type: "success" });
+      } catch {
+        setUploadError("Failed to read file — make sure it's a valid Excel or CSV file.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   const [generating, setGenerating] = useState(false);
   const [generateStep, setGenerateStep] = useState(0);
@@ -161,7 +205,7 @@ export default function MigrationGenerator() {
   const handleGenerate = async () => {
     const queries = splitQueries(queriesText);
     if (queries.length === 0) {
-      setGenerateError("Paste at least one SELECT query.");
+      setGenerateError("Enter at least one query, table name, or stored procedure name.");
       return;
     }
     if (!credsComplete(creds)) {
@@ -430,10 +474,25 @@ export default function MigrationGenerator() {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">SELECT Queries</h3>
+            <h3 className="text-sm font-semibold">Queries / Tables</h3>
             <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-              {queryCount} {queryCount === 1 ? "query" : "queries"} detected
+              {queryCount} {queryCount === 1 ? "entry" : "entries"} detected
             </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(e) => { handleFileUpload(e.target.files?.[0]); e.target.value = ""; }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload .xlsx, .xls, or .csv — first column should contain table names, queries, or stored proc names"
+              className="flex items-center gap-1 px-2 py-0.5 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <Upload className="h-3 w-3" /> Upload file
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -472,7 +531,7 @@ export default function MigrationGenerator() {
               }
               title={
                 queryCount === 0
-                  ? "Paste at least one SELECT query."
+                  ? "Enter at least one query, table name, or stored procedure name."
                   : !credsComplete(creds)
                   ? "Fill in all Source Database fields."
                   : crossDbMode && !credsComplete(targetCreds)
@@ -498,23 +557,39 @@ export default function MigrationGenerator() {
           </div>
         )}
 
-        <div className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]">
+        <div
+          className="rounded-lg border border-border overflow-hidden [&_.cm-editor]:min-h-[180px]"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files?.[0];
+            handleFileUpload(file);
+          }}
+        >
           <CodeMirror
             value={queriesText}
             onChange={(value) => {
               setQueriesText(value);
-              // Editing after a generate invalidates the snapshot Execute
-              // on Target would otherwise replay — force a fresh Generate
-              // before allowing execution again.
               setGeneratedQueries(null);
             }}
             theme="none"
             extensions={sqlExtensions}
-            placeholder={`select * from rp.tblReportConfig where ReportConfigName in ('A','B')\nselect * from dt.tblDispatcher where DispatcherTaskName in ('C','D')`}
+            placeholder={`cn.tblRedundExcelValidation\nselect * from rp.tblReportConfig where ReportConfigName in ('A','B')\nselect * from dt.tblDispatcher where DispatcherTaskName in ('C','D')`}
             basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
             minHeight="180px"
           />
         </div>
+
+        <p className="text-xs text-muted-foreground mt-1">
+          Enter SELECT queries, bare table names (e.g. <code className="font-mono">cn.tblFoo</code>), or stored procedure names — one per line. Or upload an Excel/CSV file where the first column lists them.
+        </p>
+
+        {uploadError && (
+          <div className="flex items-start gap-2 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{uploadError}</span>
+          </div>
+        )}
 
         {generateError && (
           <div className="flex items-start gap-2 mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">

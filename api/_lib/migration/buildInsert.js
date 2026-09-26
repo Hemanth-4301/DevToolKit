@@ -65,6 +65,7 @@ export function buildTableScript({
   rows,
   includeDelete = true,
   includeIdentityInsert = true,
+  isProc = false,
 }) {
   const hasIdentity = includeIdentityInsert && columns.some((c) => c.isIdentity);
   const columnList = columns.map((c) => `[${c.name}]`).join(",");
@@ -73,8 +74,8 @@ export function buildTableScript({
 
   const lines = [];
   lines.push("-- --------------------------------------------------------");
-  lines.push(`-- Table  : ${qualified}`);
-  lines.push(`-- Filter : WHERE ${whereClause}`);
+  lines.push(`-- Table  : ${qualified}${isProc ? " (via stored procedure)" : ""}`);
+  lines.push(`-- Filter : ${whereClause ? `WHERE ${whereClause}` : isProc ? "(stored procedure — no DELETE generated)" : "(full table)"}`);
   lines.push(`-- Rows   : ${rows.length}`);
   lines.push("-- --------------------------------------------------------");
   lines.push("");
@@ -82,8 +83,11 @@ export function buildTableScript({
   lines.push(`  BEGIN TRANSACTION ${txnName}`);
   lines.push("");
 
-  if (includeDelete) {
-    lines.push(`  DELETE FROM ${qualified} WHERE ${whereClause}`);
+  if (includeDelete && whereClause !== null) {
+    const deleteStmt = whereClause
+      ? `  DELETE FROM ${qualified} WHERE ${whereClause}`
+      : `  DELETE FROM ${qualified}`;
+    lines.push(deleteStmt);
     lines.push("");
   }
 
