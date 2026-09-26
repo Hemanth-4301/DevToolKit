@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/share/:id", "destination": "/api/share?id=:id" },
+    { "source": "/api/admin/shares/:id", "destination": "/api/admin/shares?id=:id" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
