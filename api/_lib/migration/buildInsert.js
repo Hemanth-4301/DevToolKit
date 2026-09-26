@@ -70,7 +70,14 @@ export function buildTableScript({
   const hasIdentity = includeIdentityInsert && columns.some((c) => c.isIdentity);
   const columnList = columns.map((c) => `[${c.name}]`).join(",");
   const qualified = `${schema}.${table}`;
-  const txnName = `Migrate_${schema}_${table}`.replace(/[^A-Za-z0-9_]/g, "_");
+  // SQL Server limits transaction names to 32 characters — truncate and
+  // append a short hash so names stay unique even after truncation.
+  const rawTxnName = `Migrate_${schema}_${table}`.replace(/[^A-Za-z0-9_]/g, "_");
+  const txnName = rawTxnName.length <= 32
+    ? rawTxnName
+    : rawTxnName.slice(0, 28) + "_" + Math.abs(
+        rawTxnName.split("").reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0)
+      ).toString(36).slice(0, 3);
 
   const lines = [];
   lines.push("-- --------------------------------------------------------");
@@ -119,7 +126,7 @@ export function buildTableScript({
     lines.push(`  SET IDENTITY_INSERT ${qualified} OFF`);
   }
   lines.push(`  PRINT 'ROLLED BACK: ${qualified} — ' + ERROR_MESSAGE()`);
-  lines.push("  THROW;");
+  lines.push("  RAISERROR(ERROR_MESSAGE(), ERROR_SEVERITY(), ERROR_STATE());");
   lines.push("END CATCH");
   lines.push("GO");
 
