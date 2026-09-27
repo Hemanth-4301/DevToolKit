@@ -58,11 +58,14 @@ async function encryptCreds(creds, keyId, cryptoKey) {
   return { keyId, iv: toHex(iv), tag: toHex(tag), data: toHex(data) };
 }
 
-// Encrypt one or two creds objects with a single server-issued key.
-// Returns envelopes to send in place of plain creds.
+// Encrypt each creds object with its own server-issued key (single-use).
 async function encryptAll(...credsObjects) {
-  const { keyId, cryptoKey } = await fetchEncryptionKey();
-  return Promise.all(credsObjects.map((c) => encryptCreds(c, keyId, cryptoKey)));
+  return Promise.all(
+    credsObjects.map(async (c) => {
+      const { keyId, cryptoKey } = await fetchEncryptionKey();
+      return encryptCreds(c, keyId, cryptoKey);
+    }),
+  );
 }
 
 export async function testMigrationConnection(creds) {
