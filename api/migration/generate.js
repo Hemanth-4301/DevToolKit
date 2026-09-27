@@ -4,6 +4,7 @@ import { withConnection, friendlyConnectionError } from "../_lib/migration/mssql
 import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
 import { buildTableScript, buildProcScript } from "../_lib/migration/buildInsert.js";
 import { resolveTables } from "../_lib/migration/resolveTables.js";
+import { decryptCreds } from "../_lib/migration/decryptCreds.js";
 
 const MAX_QUERIES = 50;
 const MAX_TOTAL_QUERY_LENGTH = 200_000;
@@ -27,6 +28,7 @@ function validateCreds(creds, label) {
 function validateBody(body) {
   const { source, target, queries, includeDelete, includeIdentityInsert } = body || {};
 
+  // source/target are already decrypted plain-creds objects by this point
   const sourceValidated = validateCreds(source, "Source database");
   if (sourceValidated.error) return { error: sourceValidated.error };
 
@@ -73,7 +75,18 @@ export default async function handler(req, res) {
   const session = await requireAdminOrFlag(req, res, "migrationGenerator");
   if (!session) return;
 
-  const validated = validateBody(req.body);
+  // Decrypt source and target credential envelopes before validation
+  let decryptedBody;
+  try {
+    const { sourceEnv, targetEnv, ...rest } = req.body || {};
+    const source = decryptCreds(sourceEnv);
+    const target = targetEnv ? decryptCreds(targetEnv) : null;
+    decryptedBody = { ...rest, source, target };
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const validated = validateBody(decryptedBody);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
   }

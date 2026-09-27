@@ -5,6 +5,7 @@ import { splitQueries, parseQuery } from "../_lib/migration/parseQuery.js";
 import { resolveTables } from "../_lib/migration/resolveTables.js";
 import { executeTableStatements } from "../_lib/migration/executeTable.js";
 import { buildProcScript } from "../_lib/migration/buildInsert.js";
+import { decryptCreds } from "../_lib/migration/decryptCreds.js";
 
 const MAX_QUERIES = 50;
 const MAX_TOTAL_QUERY_LENGTH = 200_000;
@@ -84,7 +85,17 @@ export default async function handler(req, res) {
   const session = await requireAdminOrFlag(req, res, "migrationGenerator");
   if (!session) return;
 
-  const validated = validateBody(req.body);
+  let decryptedBody;
+  try {
+    const { sourceEnv, targetEnv, ...rest } = req.body || {};
+    const source = decryptCreds(sourceEnv);
+    const target = decryptCreds(targetEnv);
+    decryptedBody = { ...rest, source, target };
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const validated = validateBody(decryptedBody);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
   }

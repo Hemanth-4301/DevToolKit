@@ -8,11 +8,6 @@ async function parseJsonSafe(res) {
   }
 }
 
-// Mirrors src/lib/codeShareApi.js's request() helper — centralizes error
-// normalization so components never call fetch() directly. These routes
-// are admin-gated (see api/_lib/adminAuth.js's requireAdmin), so the
-// session cookie must ride along — same-origin is the fetch default, but
-// spelled out explicitly to match src/lib/adminApi.js's convention.
 async function request(url, options) {
   let res;
   try {
@@ -29,26 +24,73 @@ async function request(url, options) {
   return parseJsonSafe(res);
 }
 
-function postJson(path, body) {
-  return request(`${API_BASE}/${path}`, {
+// Fetch a one-time AES-256-GCM key from the server.
+async function fetchEncryptionKey() {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/creds-key`, { credentials: "same-origin" });
+  } catch {
+    throw new Error("Network error — could not fetch encryption key.");
+  }
+  if (!res.ok) {
+    const body = await parseJsonSafe(res);
+    throw new Error(body?.error || "Failed to fetch encryption key.");
+  }
+  const { keyId, keyHex } = await res.json();
+  const keyBytes = Uint8Array.from(keyHex.match(/.{2}/g).map((b) => parseInt(b, 16)));
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"],
+  );
+  return { keyId, cryptoKey };
+}
+
+// Encrypt a credentials object with AES-256-GCM.
+// Returns { keyId, iv, tag, data } — all hex strings.
+async function encryptCreds(creds, keyId, cryptoKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plain = new TextEncoder().encode(JSON.stringify(creds));
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, plain);
+  // Web Crypto appends the 16-byte auth tag at the end of the ciphertext
+  const cipherArr = new Uint8Array(cipher);
+  const data = cipherArr.slice(0, -16);
+  const tag = cipherArr.slice(-16);
+  const toHex = (buf) => Array.from(buf).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return { keyId, iv: toHex(iv), tag: toHex(tag), data: toHex(data) };
+}
+
+// Encrypt one or two creds objects with a single server-issued key.
+// Returns envelopes to send in place of plain creds.
+async function encryptAll(...credsObjects) {
+  const { keyId, cryptoKey } = await fetchEncryptionKey();
+  return Promise.all(credsObjects.map((c) => encryptCreds(c, keyId, cryptoKey)));
+}
+
+export async function testMigrationConnection(creds) {
+  const [envelope] = await encryptAll(creds);
+  return request(`${API_BASE}/test-connection`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(envelope),
   });
 }
 
-export function testMigrationConnection(creds) {
-  return postJson("test-connection", creds);
+export async function generateMigrationScript({ source, target, queries, includeDelete, includeIdentityInsert }) {
+  const envelopes = target
+    ? await encryptAll(source, target)
+    : await encryptAll(source);
+  const [sourceEnv, targetEnv] = envelopes;
+  return request(`${API_BASE}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceEnv, targetEnv: target ? targetEnv : null, queries, includeDelete, includeIdentityInsert }),
+  });
 }
 
-export function generateMigrationScript({ source, target, queries, includeDelete, includeIdentityInsert }) {
-  return postJson("generate", { source, target, queries, includeDelete, includeIdentityInsert });
-}
-
-// Actually runs the DELETE/INSERT statements against `target` — unlike
-// generate/test-connection, this writes to a real database. `confirm:
-// true` must be passed explicitly; the server rejects the call
-// otherwise, on top of whatever confirmation the caller's own UI does.
-export function executeMigration({ source, target, queries, includeDelete, includeIdentityInsert }) {
-  return postJson("execute", { source, target, queries, includeDelete, includeIdentityInsert, confirm: true });
+export async function executeMigration({ source, target, queries, includeDelete, includeIdentityInsert }) {
+  const [sourceEnv, targetEnv] = await encryptAll(source, target);
+  return request(`${API_BASE}/execute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceEnv, targetEnv, queries, includeDelete, includeIdentityInsert, confirm: true }),
+  });
 }

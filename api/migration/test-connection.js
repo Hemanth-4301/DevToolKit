@@ -1,9 +1,10 @@
 import { isRateLimited, clientKeyFor } from "../_lib/rateLimit.js";
 import { requireAdminOrFlag } from "../_lib/featureFlags.js";
 import { withConnection, friendlyConnectionError } from "../_lib/migration/mssqlClient.js";
+import { decryptCreds } from "../_lib/migration/decryptCreds.js";
 
-function validateCreds(body) {
-  const { server, database, username, password, port } = body || {};
+function validateCreds(creds) {
+  const { server, database, username, password, port } = creds || {};
   if (
     typeof server !== "string" || !server.trim() ||
     typeof database !== "string" || !database.trim() ||
@@ -31,7 +32,14 @@ export default async function handler(req, res) {
   const session = await requireAdminOrFlag(req, res, "migrationGenerator");
   if (!session) return;
 
-  const validated = validateCreds(req.body);
+  let creds;
+  try {
+    creds = decryptCreds(req.body);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const validated = validateCreds(creds);
   if (validated.error) {
     return res.status(400).json({ error: validated.error });
   }

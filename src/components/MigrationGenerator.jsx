@@ -224,13 +224,17 @@ export default function MigrationGenerator() {
       setScript(result.script || "");
       setGeneratedQueries(queries);
 
+      // Save server/db/username but NEVER the password — passwords must
+      // be re-entered each session.
       if (rememberCreds) {
-        localStorage.setItem(CREDS_STORAGE_KEY, JSON.stringify(creds));
+        const { password: _p, ...safeToStore } = creds;
+        localStorage.setItem(CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
       } else {
         localStorage.removeItem(CREDS_STORAGE_KEY);
       }
       if (crossDbMode && rememberTargetCreds) {
-        localStorage.setItem(TARGET_CREDS_STORAGE_KEY, JSON.stringify(targetCreds));
+        const { password: _p, ...safeToStore } = targetCreds;
+        localStorage.setItem(TARGET_CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
       } else {
         localStorage.removeItem(TARGET_CREDS_STORAGE_KEY);
       }
