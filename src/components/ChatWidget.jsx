@@ -18,7 +18,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { streamChat, hasGeminiKey } from "../lib/gemini";
 import { stripMarkdownForSpeech } from "../lib/markdown";
 import ChatMessageContent from "./ChatMessageContent";
@@ -95,14 +95,7 @@ function loadHistory() {
 }
 
 function saveHistory(messages) {
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)),
-    );
-  } catch {
-    // best-effort — chat history isn't critical
-  }
+  safeSetItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
 }
 
 function getSpeechRecognition() {
@@ -171,11 +164,7 @@ export default function ChatWidget() {
     if (drag?.moved) {
       setIsDragging(false);
       setLauncherPos((pos) => {
-        try {
-          localStorage.setItem(POSITION_KEY, JSON.stringify(pos));
-        } catch {
-          // best-effort — position just won't persist
-        }
+        safeSetItem(POSITION_KEY, JSON.stringify(pos));
         return pos;
       });
     } else {

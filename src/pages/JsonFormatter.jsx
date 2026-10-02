@@ -12,7 +12,7 @@ import {
   FileText,
   Replace,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import JsonTree from "../components/JsonTree";
@@ -71,11 +71,7 @@ function saveHistory(input, output) {
     output,
   };
   const updated = [entry, ...history].slice(0, 10);
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-  } catch {
-    // storage quota exceeded — history is best-effort, not critical
-  }
+  safeSetItem(HISTORY_KEY, JSON.stringify(updated));
 }
 
 function getState() {
@@ -95,11 +91,7 @@ function setState(state) {
     state.output.length > PERSIST_MAX_SIZE
   )
     return;
-  try {
-    localStorage.setItem(STATE_KEY, JSON.stringify(state));
-  } catch {
-    // storage quota exceeded — non-critical, state just won't persist
-  }
+  safeSetItem(STATE_KEY, JSON.stringify(state));
 }
 
 function highlightJsonLine(line, key) {

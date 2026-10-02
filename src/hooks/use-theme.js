@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { safeSetItem } from "../lib/utils";
 
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -13,7 +14,7 @@ export function useTheme() {
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("devtoolkit_theme", theme);
+    safeSetItem("devtoolkit_theme", theme);
   }, [theme]);
 
   const toggle = () => setTheme(t => t === "dark" ? "light" : "dark");

@@ -13,7 +13,7 @@ import {
   Maximize2,
   Replace,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import FindReplaceModal from "../components/FindReplaceModal";
 import ResizableSplit from "../components/ResizableSplit";
@@ -41,10 +41,7 @@ function saveHistory(dir, preview) {
   try {
     const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     const entry = { timestamp: Date.now(), dir, preview: preview.slice(0, 50) };
-    localStorage.setItem(
-      HISTORY_KEY,
-      JSON.stringify([entry, ...h].slice(0, 10)),
-    );
+    safeSetItem(HISTORY_KEY, JSON.stringify([entry, ...h].slice(0, 10)));
   } catch {}
 }
 
@@ -68,7 +65,7 @@ function getState() {
 }
 
 function setState(state) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  safeSetItem(STATE_KEY, JSON.stringify(state));
 }
 
 function highlightJson(jsonStr) {

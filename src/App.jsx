@@ -16,6 +16,8 @@ import { ToastContainer } from "./components/Toast";
 import ChatWidget from "./components/ChatWidget";
 import { useAdminAuth } from "./hooks/use-admin-auth";
 import { useFeatureFlags } from "./hooks/use-feature-flags";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { safeSetItem } from "./lib/utils";
 
 // Only "home" and "code-share" are real URLs — every other tab (json, sql,
 // jwt, admin, ...) is reached purely by clicking the navbar (or, for admin,
@@ -33,9 +35,11 @@ const URL_BACKED_TABS = new Set(Object.keys(TAB_ROUTES));
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppShell />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
@@ -92,7 +96,7 @@ function AppShell() {
   const flags = useFeatureFlags();
 
   useEffect(() => {
-    localStorage.setItem("devtoolkit_devmode", JSON.stringify(devMode));
+    safeSetItem("devtoolkit_devmode", JSON.stringify(devMode));
   }, [devMode]);
 
   useEffect(() => {

@@ -25,7 +25,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { syntaxHighlighting } from "@codemirror/language";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "./Toast";
 import { testMigrationConnection, generateMigrationScript, executeMigration } from "../lib/migrationApi";
 import { splitQueries } from "../lib/migrationQuerySplit";
@@ -228,13 +228,13 @@ export default function MigrationGenerator() {
       // be re-entered each session.
       if (rememberCreds) {
         const { password: _p, ...safeToStore } = creds;
-        localStorage.setItem(CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
+        safeSetItem(CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
       } else {
         localStorage.removeItem(CREDS_STORAGE_KEY);
       }
       if (crossDbMode && rememberTargetCreds) {
         const { password: _p, ...safeToStore } = targetCreds;
-        localStorage.setItem(TARGET_CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
+        safeSetItem(TARGET_CREDS_STORAGE_KEY, JSON.stringify(safeToStore));
       } else {
         localStorage.removeItem(TARGET_CREDS_STORAGE_KEY);
       }

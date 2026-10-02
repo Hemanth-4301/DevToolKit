@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 
 const MIN_PCT = 20;
 const MAX_PCT = 80;
@@ -38,7 +38,7 @@ export default function ResizableSplit({ left, right, storageKey }) {
       draggingRef.current = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      if (storageKey) localStorage.setItem(storageKey, String(leftPct));
+      if (storageKey) safeSetItem(storageKey, String(leftPct));
     };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("touchmove", onTouchMove);
@@ -60,7 +60,7 @@ export default function ResizableSplit({ left, right, storageKey }) {
 
   const resetSplit = () => {
     setLeftPct(50);
-    if (storageKey) localStorage.setItem(storageKey, "50");
+    if (storageKey) safeSetItem(storageKey, "50");
   };
 
   return (

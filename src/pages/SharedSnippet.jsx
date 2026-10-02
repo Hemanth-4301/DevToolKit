@@ -4,7 +4,7 @@ import { Copy, Check, AlertCircle, Loader2, Link2, ArrowUp, ChevronDown, Plus, T
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { syntaxHighlighting } from "@codemirror/language";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import CodeLoader from "../components/CodeLoader";
 import { getShare, getShareMeta, createShare, MAX_CODE_LENGTH } from "../lib/codeShareApi";
@@ -117,7 +117,7 @@ export default function SharedSnippet() {
     () => localStorage.getItem(EDITOR_THEME_STORAGE_KEY) || "default",
   );
   useEffect(() => {
-    localStorage.setItem(EDITOR_THEME_STORAGE_KEY, editorThemeId);
+    safeSetItem(EDITOR_THEME_STORAGE_KEY, editorThemeId);
   }, [editorThemeId]);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);

@@ -13,6 +13,7 @@ import ScrollToTop from "../components/ScrollToTop";
 import ResizableSplit from "../components/ResizableSplit";
 import FindReplaceModal from "../components/FindReplaceModal";
 import { useUndoHistory } from "../hooks/use-undo-history";
+import { safeSetItem } from "../lib/utils";
 
 const STATE_KEY = "devtoolkit_html_preview_state";
 
@@ -66,11 +67,7 @@ function getState() {
 }
 
 function setState(state) {
-  try {
-    localStorage.setItem(STATE_KEY, JSON.stringify(state));
-  } catch {
-    // storage quota exceeded — non-critical, state just won't persist
-  }
+  safeSetItem(STATE_KEY, JSON.stringify(state));
 }
 
 export default function HtmlPreviewer() {

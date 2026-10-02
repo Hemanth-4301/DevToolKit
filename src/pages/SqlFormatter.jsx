@@ -12,7 +12,7 @@ import {
   Replace,
 } from "lucide-react";
 import { format as sqlFormat } from "sql-formatter";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import FindReplaceModal from "../components/FindReplaceModal";
@@ -411,7 +411,7 @@ function saveHistory(input, output) {
     output,
   };
   const updated = [entry, ...history].slice(0, 10);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+  safeSetItem(HISTORY_KEY, JSON.stringify(updated));
 }
 
 function getState() {
@@ -425,7 +425,7 @@ function getState() {
 }
 
 function setState(state) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  safeSetItem(STATE_KEY, JSON.stringify(state));
 }
 
 const DIALECT_MAP = {

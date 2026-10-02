@@ -12,7 +12,7 @@ import {
   Loader2,
   Maximize2,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, safeSetItem } from "../lib/utils";
 import { addToast } from "../components/Toast";
 import ScrollToTop from "../components/ScrollToTop";
 import PencilLoader from "../components/PencilLoader";
@@ -636,7 +636,7 @@ export default function Base64Converter() {
     setDecodeResult(null);
     setShowFullDecodeInput(false);
     runDecode(BASE64_SAMPLE_DATA_URL);
-    localStorage.setItem(BASE64_FIRST_VISIT_SAMPLE_KEY, "true");
+    safeSetItem(BASE64_FIRST_VISIT_SAMPLE_KEY, "true");
   }, [runDecode]);
 
   const loadSampleDecode = useCallback(() => {
